@@ -92,7 +92,6 @@ Rubric:
     print("Component Breakdown:")
     print("-" * 70)
     for name, chars in components.items():
-        tokens = estimate_tokens(name)
         print(f"  {name:40s} {chars:6,} chars  ~{estimate_tokens(str(chars)):5,} tokens")
 
     print()

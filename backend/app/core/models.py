@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+from enum import Enum
 
 @dataclass
 class GradingResult:
@@ -54,7 +55,7 @@ class GradingRequest:
     assignment_code: Optional[str]
     test_cases: Optional[List[Dict[str, Any]]] = None
 
-from enum import Enum
+
 
 class EventType(str, Enum):
     RESULT_SAVED = "result_saved"

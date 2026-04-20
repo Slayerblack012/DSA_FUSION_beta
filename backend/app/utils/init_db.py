@@ -4,6 +4,7 @@ Run: python app/utils/init_db.py
 """
 import sys
 import os
+import sqlite3
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from app.models.models import Base
@@ -31,7 +32,7 @@ Base.metadata.create_all(bind=engine)
 print("[OK] Tables created/verified")
 
 # Check if users table is empty
-import sqlite3
+# Check if users table is empty
 conn = sqlite3.connect(DB_FILE)
 cursor = conn.cursor()
 

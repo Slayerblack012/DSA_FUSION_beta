@@ -256,7 +256,8 @@ print(json.dumps(results))
     except subprocess.TimeoutExpired:
         try:
             process.kill()
-        except: pass
+        except Exception:
+            pass
         return [
             SandboxResult(
                 success=False,
@@ -278,8 +279,10 @@ print(json.dumps(results))
             ) for _ in inputs
         ]
     finally:
-        try: os.unlink(temp_file)
-        except: pass
+        try:
+            os.unlink(temp_file)
+        except Exception:
+            pass
 
 
 def run_with_sandbox_limits(

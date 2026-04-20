@@ -83,11 +83,13 @@ class GradingRepository:
         try:
             with self.get_session() as session:
                 session.execute("ALTER TABLE grading_history ADD COLUMN is_manual_grade BOOLEAN DEFAULT 0")
-        except Exception: pass
+        except Exception:
+            pass
         try:
             with self.get_session() as session:
                 session.execute("ALTER TABLE grading_history ADD COLUMN rubric_file_path VARCHAR(500)")
-        except Exception: pass
+        except Exception:
+            pass
         # try:
         #     with self.get_session() as session:
         #         session.execute("ALTER TABLE grading_history ADD COLUMN score_proof TEXT")
@@ -207,7 +209,7 @@ class GradingRepository:
                     func.avg(score_col).label('avg'),
                     func.max(score_col).label('max'),
                     func.min(score_col).label('min'),
-                    func.sum(func.case((GradingHistory.plagiarism_detected == True, 1), else_=0)).label('plag_count'),
+                    func.sum(func.case((GradingHistory.plagiarism_detected, 1), else_=0)).label('plag_count'),
                     func.sum(func.case((score_col >= 5.0, 1), else_=0)).label('pass_count'),
                     func.sum(func.case((score_col < 2, 1), else_=0)).label('dist_0_2'),
                     func.sum(func.case((score_col >= 2, score_col < 4, 1), else_=0)).label('dist_2_4'),
@@ -270,7 +272,8 @@ class GradingRepository:
         try:
             with self.get_session() as session:
                 user = session.query(User).filter(User.username == username).first()
-                if not user: return None
+                if not user:
+                    return None
                 return {"id": user.id, "username": user.username, "password_hash": user.password_hash, "full_name": user.full_name, "role": user.role}
         except Exception as e:
             logger.error("Get user failed: %s", e)
@@ -318,10 +321,14 @@ class GradingRepository:
                     GradingHistory.is_manual_grade,
                     GradingHistory.rubric_file_path
                 )
-                if student_id: db_query = db_query.filter(GradingHistory.student_id == student_id)
-                if assignment_code: db_query = db_query.filter(GradingHistory.assignment_code == assignment_code)
-                if topic and topic != "all": db_query = db_query.filter(GradingHistory.topic == topic)
-                if status and status != "all": db_query = db_query.filter(GradingHistory.status == status)
+                if student_id:
+                    db_query = db_query.filter(GradingHistory.student_id == student_id)
+                if assignment_code:
+                    db_query = db_query.filter(GradingHistory.assignment_code == assignment_code)
+                if topic and topic != "all":
+                    db_query = db_query.filter(GradingHistory.topic == topic)
+                if status and status != "all":
+                    db_query = db_query.filter(GradingHistory.status == status)
                 total = db_query.count()
                 offset = (page - 1) * page_size
                 records = db_query.order_by(desc(GradingHistory.submitted_at)).offset(offset).limit(page_size).all()
@@ -456,7 +463,8 @@ class GradingRepository:
         try:
             with self.get_session() as session:
                 record = session.query(GradingHistory).filter(GradingHistory.id == submission_id).first()
-                if not record: return False
+                if not record:
+                    return False
                 record.final_score = new_score
                 record.reviewer_id = reviewer_id
                 record.needs_review = False
@@ -466,7 +474,7 @@ class GradingRepository:
                         if isinstance(f_list, list):
                             f_list.append(f"Instructor Note: {feedback}")
                             record.feedback = json.dumps(f_list)
-                    except:
+                    except Exception:
                         record.feedback = json.dumps([f"Instructor Note: {feedback}"])
                 return True
         except Exception as e:
@@ -506,10 +514,14 @@ class GradingRepository:
             return []
 
     def _classify_error(self, stderr: str, passed: bool) -> str:
-        if passed: return "passed"
-        if not stderr: return "wrong_answer"
-        if "Time Limit" in stderr: return "timeout"
-        if "Traceback" in stderr or "Error" in stderr: return "runtime_error"
+        if passed:
+            return "passed"
+        if not stderr:
+            return "wrong_answer"
+        if "Time Limit" in stderr:
+            return "timeout"
+        if "Traceback" in stderr or "Error" in stderr:
+            return "runtime_error"
         return "wrong_answer"
 
     def get_runs_by_submission(self, submission_id: int) -> List[Dict]:
@@ -651,8 +663,10 @@ class GradingRepository:
         try:
             with self.get_session() as session:
                 query = session.query(ManualGrade)
-                if student_id: query = query.filter(ManualGrade.student_id == student_id)
-                if assignment_code: query = query.filter(ManualGrade.assignment_code == assignment_code)
+                if student_id:
+                    query = query.filter(ManualGrade.student_id == student_id)
+                if assignment_code:
+                    query = query.filter(ManualGrade.assignment_code == assignment_code)
                 grades = query.order_by(ManualGrade.graded_at.desc()).all()
                 return [{
                     "id": g.id, "grading_history_id": g.grading_history_id, "student_id": g.student_id,

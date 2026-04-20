@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import router
 from app.api.submissions import router as submissions_router
@@ -216,7 +217,7 @@ async def root_metrics():
 
 
 # Mount Next.js frontend static build
-from fastapi.staticfiles import StaticFiles
+# Mount Next.js frontend static build
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "out"))
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
