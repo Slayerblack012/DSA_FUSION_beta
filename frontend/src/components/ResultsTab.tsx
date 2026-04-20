@@ -284,9 +284,9 @@ export const ResultsTab = ({ latest, studentInfo, onBackToSubmit }: ResultsTabPr
           </div>
         </div>
 
-        {filteredFileEvaluations.map((file, i) => (
+        {filteredFileEvaluations.map((file) => (
           <FileEvaluationCard
-            key={i}
+            key={file.fileName}
             file={file}
             isExpanded={expandedFileId === file.fileName}
             onToggleExpand={() =>

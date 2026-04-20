@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
 import type { AppTab, ResultRecord, SystemSettings, ConfirmDialogState, StudentInfo } from "@/types";
 import {
@@ -159,9 +159,10 @@ export default function EduPortal() {
     setSystemSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const notify = useCallback((type: "success" | "error", message: string) => {
+  const notify = useCallback((type: "success" | "error" | "destructive", message: string) => {
     if (!systemSettings.enableNotifications) return;
-    toast.custom((t) => <SystemToast t={t} message={message} />, {
+    const variant = type === "destructive" ? "destructive" : type === "error" ? "destructive" : "default";
+    toast.custom((t) => <SystemToast t={t} message={message} variant={variant} />, {
       duration: 5000,
       position: "top-right"
     });
@@ -283,9 +284,20 @@ export default function EduPortal() {
 
     if (systemSettings.enableNotifications) {
       toast.promise(submissionPromise(), {
-        loading: "Đang thẩm định bài giải...",
-        success: (data) => (<div className="flex flex-col gap-1"><span className="font-bold">Chấm điểm hoàn tất!</span><span className="text-xs opacity-80">Điểm: {data.total_score?.toFixed(1) ?? "?"}/10</span></div>),
-        error: (err) => (<div className="flex flex-col gap-1"><span className="font-bold">Lỗi xử lý</span><span className="text-xs opacity-80">{err.message}</span></div>),
+        loading: "Hệ thống đang thẩm định và chấm điểm bài giải...",
+        success: (data) => (
+          <div className="flex flex-col gap-1.5 p-1">
+            <span className="font-black text-[14px] text-emerald-700 uppercase tracking-tight">Chấm điểm hoàn tất</span>
+            <div className="h-px bg-emerald-100 w-full my-0.5" />
+            <span className="text-[13px] font-bold text-slate-700">Điểm tổng kết: <span className="text-emerald-600 text-lg">{data.total_score?.toFixed(1) ?? "?"}</span>/10</span>
+          </div>
+        ),
+        error: (err) => (
+          <div className="flex flex-col gap-1 p-1">
+            <span className="font-black text-[14px] text-rose-700 uppercase tracking-tight">Lỗi chấm điểm</span>
+            <span className="text-[12px] font-medium text-slate-500 leading-snug">{err.message}</span>
+          </div>
+        ),
       }).finally(() => setIsSubmitting(false));
       return;
     }
@@ -314,18 +326,42 @@ export default function EduPortal() {
           <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
             <AnimatePresence mode="wait">
               {activeTab === "submit" && (
-                <SubmitForm key="submit" studentInfo={studentInfo} setStudentInfo={setStudentInfo}
-                  files={files} setFiles={setFiles} isSubmitting={isSubmitting} settings={systemSettings}
-                  onSubmit={handleSubmit} onNotify={notify} resultsHistory={resultsHistory} latest={latest} />
+                <motion.div
+                  key="submit"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  <SubmitForm studentInfo={studentInfo} setStudentInfo={setStudentInfo}
+                    files={files} setFiles={setFiles} isSubmitting={isSubmitting} settings={systemSettings}
+                    onSubmit={handleSubmit} onNotify={notify} openConfirmDialog={openConfirmDialog} resultsHistory={resultsHistory} latest={latest} />
+                </motion.div>
               )}
               {activeTab === "history" && (
-                <ResultsTab key="history" latest={latest} studentInfo={studentInfo} onBackToSubmit={() => setActiveTab("submit")} />
+                <motion.div
+                  key="history"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  <ResultsTab latest={latest} studentInfo={studentInfo} onBackToSubmit={() => setActiveTab("submit")} />
+                </motion.div>
               )}
               {activeTab === "settings" && (
-                <SettingsTab key="settings" settings={systemSettings} updateSetting={updateSystemSetting}
-                  settingsLastUpdated={settingsLastUpdated} onClearHistory={clearHistory}
-                  onExportSettings={exportSystemSettings} onImportSettings={importSystemSettingsFromFile}
-                  onRestoreDefaults={restoreDefaultSettings} onResetSession={resetSession} />
+                <motion.div
+                  key="settings"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  <SettingsTab settings={systemSettings} updateSetting={updateSystemSetting}
+                    settingsLastUpdated={settingsLastUpdated} onClearHistory={clearHistory}
+                    onExportSettings={exportSystemSettings} onImportSettings={importSystemSettingsFromFile}
+                    onRestoreDefaults={restoreDefaultSettings} onResetSession={resetSession} />
+                </motion.div>
               )}
             </AnimatePresence>
           </div>
