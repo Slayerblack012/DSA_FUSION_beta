@@ -269,7 +269,6 @@ class CriteriaMatcher:
         # Always create test criterion
         test_passed = sum(1 for t in test_results if t.get("passed"))
         test_total = len(test_results)
-        test_ratio = test_passed / test_total if test_total > 0 else 0
         result.matched_criteria.append(CriterionMatch(
             criterion_name="Kiểm thử (Testing)",
             matched_algorithms=["_test_execution"],

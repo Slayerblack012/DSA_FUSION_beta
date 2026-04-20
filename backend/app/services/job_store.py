@@ -376,7 +376,7 @@ class _JobStoreDictWrapper:
         """Run a coroutine from sync context, handling event loop presence."""
         import asyncio
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # We're inside a running loop — can't block
             logger.warning("Sync access in async context - use async methods")
             return None
