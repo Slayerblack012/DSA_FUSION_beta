@@ -26,9 +26,9 @@ _MAX_CODE_LENGTH = 30_000  # Tăng lên 30,000 để hỗ trợ dự án nhiều
 _MAX_FEEDBACK_CODE = 2_000  # Reduced from 3,000 → 2,000
 
 # Retry configuration
-MAX_RETRIES = 3
-INITIAL_RETRY_DELAY = 1.0  # seconds
-MAX_RETRY_DELAY = 10.0  # seconds
+MAX_RETRIES = 5
+INITIAL_RETRY_DELAY = 2.0  # seconds
+MAX_RETRY_DELAY = 20.0  # seconds
 RETRY_EXPONENT = 2.0  # Exponential backoff factor
 
 # Circuit breaker configuration
@@ -453,11 +453,52 @@ OUTPUT_JSON (chỉ JSON):
                 ast_report=self._format_ast(ast_report),
                 rubric_context=self._format_rubric_context(rubric_context),
             )
+            # Define JSON Schema for Gemini to follow strictly
+            grading_schema = {
+                "type": "OBJECT",
+                "properties": {
+                    "normalized_score_10": {"type": "NUMBER"},
+                    "status": {"type": "STRING", "enum": ["AC", "WA", "TLE", "RE", "FLAG"]},
+                    "algorithms_detected": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "big_o": {"type": "STRING"},
+                    "criteria_scores": {
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "criterion": {"type": "STRING"},
+                                "earned": {"type": "NUMBER"},
+                                "max": {"type": "NUMBER"},
+                                "feedback": {"type": "STRING"},
+                                "evidence": {"type": "STRING"}
+                            },
+                            "required": ["criterion", "earned", "max"]
+                        }
+                    },
+                    "breakdown": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "correctness": {"type": "NUMBER"},
+                            "quality": {"type": "NUMBER"},
+                            "efficiency": {"type": "NUMBER"},
+                            "structure_robustness": {"type": "NUMBER"},
+                            "documentation": {"type": "NUMBER"},
+                            "security": {"type": "NUMBER"}
+                        }
+                    },
+                    "technical_review": {"type": "STRING"},
+                    "evidence_based_issues": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "actionable_suggestions": {"type": "ARRAY", "items": {"type": "STRING"}}
+                },
+                "required": ["normalized_score_10", "status", "criteria_scores", "technical_review"]
+            }
+
             response = await self._execute_with_retry(
                 self._ai.generate_json,
                 prompt,
                 temperature=0,
                 max_tokens=4096,
+                response_schema=grading_schema
             )
             trace("observe", "ok", "Provider returned JSON response")
 

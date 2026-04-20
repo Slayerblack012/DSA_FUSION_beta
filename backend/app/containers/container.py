@@ -265,7 +265,7 @@ class Container:
                 model_name = (self._config.get("ai_model_name") or "").strip()
                 lower = model_name.lower()
                 if not model_name or lower.startswith(("llama", "mixtral", "qwen", "gemma")):
-                    return "gemini-2.5-flash"
+                    return "gemini-2.0-flash"
                 return model_name
 
             if self._config.get("gemini_api_key"):
@@ -295,9 +295,10 @@ class Container:
             self._health_status["ai_provider"] = ComponentHealth(
                 name="ai_provider",
                 healthy=False,
-                message="AI provider initialization failed",
+                message=f"AI provider failed to start: {exc}",
                 error=str(exc),
             )
+            self._ai_provider = None  # Ensure it is set to None on failure
 
     def _init_services(self) -> None:
         """Set up business-logic services."""

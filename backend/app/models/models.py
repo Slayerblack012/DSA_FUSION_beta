@@ -45,6 +45,8 @@ class GradingHistory(Base):
     rubric_file_path = Column(String(500))
     # score_proof = Column(Text)
     # rubric_snapshot = Column(Text)
+    score_proof = Column(Text)
+    rubric_snapshot = Column(Text)
 
     __table_args__ = (
         Index('idx_student_assignment', 'student_id', 'assignment_code'),
@@ -72,8 +74,8 @@ class GradingHistory(Base):
             "final_score": self.final_score if self.final_score is not None else self.total_score,
             "needs_review": self.needs_review,
             "reviewer_id": self.reviewer_id,
-            # "score_proof": json.loads(self.score_proof) if self.score_proof else None,
-            # "rubric_snapshot": json.loads(self.rubric_snapshot) if self.rubric_snapshot else None,
+            "score_proof": json.loads(self.score_proof) if self.score_proof else None,
+            "rubric_snapshot": json.loads(self.rubric_snapshot) if self.rubric_snapshot else None,
         }
 
 class RunResult(Base):

@@ -30,11 +30,6 @@ DB_FILE = SETTINGS.database.db_file
 MAX_HISTORY_ROWS = SETTINGS.database.max_history_rows
 JOB_TTL_SECONDS = SETTINGS.database.job_ttl_seconds
 
-AI_MODEL_NAME = SETTINGS.ai.model_name
-AI_MODEL_TEMPERATURE = SETTINGS.ai.model_temperature
-AI_MAX_OUTPUT_TOKENS = SETTINGS.ai.max_output_tokens
-MAX_CONCURRENT_AI_CALLS = SETTINGS.ai.max_concurrent_calls
-
 # Paths
 BASE_DIR = SETTINGS.paths.base_dir
 DATA_DIR = SETTINGS.paths.data_dir
