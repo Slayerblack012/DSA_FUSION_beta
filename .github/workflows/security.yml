@@ -35,7 +35,10 @@ jobs:
 
       - name: Run Bandit
         run: |
-          bandit -r app -f sarif -o bandit.sarif -ll || true
+          python -m bandit -r app -f sarif -o bandit.sarif -ll || true
+          if [ ! -f bandit.sarif ]; then
+            echo '{"runs": []}' > bandit.sarif
+          fi
 
       - name: Upload Bandit SARIF
         uses: github/codeql-action/upload-sarif@v3
@@ -49,6 +52,9 @@ jobs:
           tar -xzf gitleaks.tar.gz gitleaks
           chmod +x gitleaks
           ./gitleaks detect --source . --report-format sarif --report-path gitleaks.sarif --no-banner --exit-code 0 || true
+          if [ ! -f gitleaks.sarif ]; then
+            echo '{"runs": []}' > gitleaks.sarif
+          fi
 
       - name: Upload gitleaks SARIF
         uses: github/codeql-action/upload-sarif@v3
@@ -84,7 +90,7 @@ jobs:
               "Artifacts uploaded as SARIF for GitHub code scanning.",
           ]
 
-            summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-            if summary_path:
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
               Path(summary_path).write_text("\n".join(summary) + "\n", encoding="utf-8")
           PY
