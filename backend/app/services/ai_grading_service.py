@@ -179,27 +179,27 @@ QUY TẮC BẮT BUỘC:
 1. Xử lý toàn bộ RUBRIC_CONTEXT: Chấm điểm dựa trên mọi tiêu chí được cung cấp.
 3. normalized_score_10 = (tổng earned / tổng max) * 10. Tính chính xác, không làm tròn sai.
 4. technical_review phải viết như một code review của senior engineer: nêu rõ điểm đúng, điểm rủi ro, edge case, và hướng sửa. Tối thiểu 25 từ.
-5. actionable_suggestions (Gợi ý cải thiện): MONG MUỐN BẠN ĐÓNG VAI LÀ MỘT GIÁO SƯ ÂN CẦN. Hãy đưa ra các lời khuyên chuyên sâu để sinh viên học hỏi, cải tiến tư duy thuật toán và tối ưu hoá mã nguồn. (Tuyệt đối không lặp lại điểm số rubric ở đây). Viết dưới dạng: "Em có thể thử áp dụng...", "Để thuật toán tối ưu hơn, em nên...".
+5. actionable_suggestions (Gợi ý cải thiện): MONG MUỐN BẠN ĐÓNG VAI LÀ MỘT GIÁO SƯ TẬN TÂM, THÂN THIỆN. Hãy đưa ra các lời khuyên chuyên sâu, tích cực để sinh viên học hỏi, cải tiến tư duy thuật toán và tối ưu hoá mã nguồn. Đặc biệt: CHỈ RA ĐIỂM TỐT CỦA EM TRƯỚC VÀ ĐỘNG VIÊN EM CỐ GẮNG. (Tuyệt đối không lặp lại điểm số rubric ở đây). Viết dưới dạng: "Em đã làm rất tốt ở phần..., hãy tiếp tục phát huy!", "Em có thể thử áp dụng...", "Để thuật toán tối ưu hơn, em nên...".
 6. Không dùng markdown trong các chuỗi nội dung. Chỉ trả về JSON hợp lệ, không có text ngoài JSON.
 7. status: "AC" nếu normalized_score_10 >= 5.0, ngược lại "WA". Dùng "TLE" nếu code có vòng lặp vô hạn rõ ràng.
 8. criteria_scores phải bao phủ ĐỦ tất cả tiêu chí trong rubric_context, BẮT BUỘC giữ NGUYÊN tên criterion chính xác từng ký tự như rubric_context cung cấp.
 9. Trong mỗi criteria_scores item, feedback phải là nhận xét ngắn, evidence phải là dòng code/hành vi cụ thể chứng minh.
-10. LỖI JSON NGHIÊM TRỌNG: Tuyệt đối KHÔNG sử dụng ký tự xuống dòng thực tế (literal newline) bên trong các chuỗi giá trị của JSON. Nếu cần xuống dòng, PHẢI dùng chuỗi ký tự "\\n" (backslash n). Toàn bộ nội dung chuỗi phải trên cùng một dòng.
+10. TUYỆT ĐỐI KHÔNG chứa các ký tự kỹ thuật sai như "{", "}", "[", "]", "," trong tên criterion. Nếu AI không khớp được tên, hãy bỏ qua hoặc dùng đúng tên từ RUBRIC_CONTEXT.
 
 OUTPUT_JSON (chỉ JSON):
-{{
+{
 "normalized_score_10": <float>,
 "status": "AC|WA",
 "algorithms_detected": ["<tên thuật toán>"],
 "big_o": "O(...)",
 "criteria_scores": [
-{{"criterion": "<tên tiêu chí>", "earned": <float>, "max": <float>, "feedback": "<nhận xét>", "evidence": "<bằng chứng>"}}
+{"criterion": "<tên tiêu chí>", "earned": <float>, "max": <float>, "feedback": "<nhận xét>", "evidence": "<bằng chứng>"}
 ],
-"breakdown": {{"correctness": <0-10>, "quality": <0-10>, "efficiency": <0-10>, "structure_robustness": <0-10>, "documentation": <0-10>, "security": <0-10>}},
+"breakdown": {"correctness": <0-10>, "quality": <0-10>, "efficiency": <0-10>, "structure_robustness": <0-10>, "documentation": <0-10>, "security": <0-10>},
 "technical_review": "<nhận xét chuyên nghiệp>",
 "evidence_based_issues": ["<lỗi cụ thể>"],
 "actionable_suggestions": ["<gợi ý cải thiện cụ thể>"]
-}}"""
+}"""
 
     @staticmethod
     def _looks_placeholder_text(text: Any) -> bool:
@@ -446,13 +446,13 @@ OUTPUT_JSON (chỉ JSON):
 
         try:
             # Execute with retry logic
-            prompt = self._prompt.format(
-                topic=topic,
-                filename=filename,
-                code=processed_code,
-                ast_report=self._format_ast(ast_report),
-                rubric_context=self._format_rubric_context(rubric_context),
-            )
+            # Use manual replace instead of .format() to avoid KeyError when code contains curly braces
+            prompt = self._prompt
+            prompt = prompt.replace("{topic}", str(topic))
+            prompt = prompt.replace("{filename}", str(filename))
+            prompt = prompt.replace("{code}", str(processed_code))
+            prompt = prompt.replace("{ast_report}", str(self._format_ast(ast_report)))
+            prompt = prompt.replace("{rubric_context}", str(self._format_rubric_context(rubric_context)))
             # Define JSON Schema for Gemini to follow strictly
             grading_schema = {
                 "type": "OBJECT",
@@ -583,20 +583,17 @@ OUTPUT_JSON (chỉ JSON):
 
         sorted_criteria = sorted(criteria, key=lambda c: c.get("max_score", 0), reverse=True)
 
-        lines = ["Rubric criteria (score each item independently):"]
+        lines = ["BẮT BUỘC: Chỉ chấm điểm theo các tiêu chí dưới đây (giữ nguyên tên tiêu chí):"]
         for idx, item in enumerate(sorted_criteria, start=1):
             name = (item.get("name") or item.get("criteria_name") or "Criterion").strip()
             max_score = item.get("max_score", 0)
-            component = (item.get("component") or "").strip()
             description = (item.get("description") or "").strip()
-            if len(description) > 60:
-                description = description[:57] + "..."
-            line = f"{idx}. {name} | max={max_score}"
-            if component:
-                line += f" | component={component}"
-            lines.append(line)
+            if len(description) > 150: # Increased from 60
+                description = description[:147] + "..."
+            
+            lines.append(f"{idx}. TIÊU CHÍ: \"{name}\" | ĐIỂM TỐI ĐA: {max_score}")
             if description:
-                lines.append(f"   desc: {description}")
+                lines.append(f"   Mô tả yêu cầu: {description}")
 
         return "\n".join(lines)
 
@@ -684,7 +681,8 @@ OUTPUT_JSON (chỉ JSON):
             if not isinstance(item, dict):
                 continue
             criterion = str(item.get("criterion") or item.get("name") or "").strip()
-            if not criterion:
+            # Filter out JSON garbage names or very short hallucinated delimiters
+            if not criterion or criterion in ['{', '}', '[', ']', ':', ',', '"', '""'] or criterion.startswith('"tieu_chi"') or criterion.startswith('tieu_chi'):
                 continue
             try:
                 earned = float(item.get("earned", 0) or 0)

@@ -23,7 +23,7 @@ export const AppHeader = ({ activeTab, setActiveTab, studentName }: HeaderProps)
           <div className="w-8 h-8 brand-gradient rounded-lg flex items-center justify-center shadow-sm">
             <GraduationCap className="w-4.5 h-4.5 text-white" />
           </div>
-          <span className="font-semibold text-[15px] text-gray-900">DSA Fusion</span>
+          <span className="font-semibold text-[15px] text-gray-900">DSA Autograder</span>
         </div>
         <nav className="hidden md:flex gap-1">
           {NAV_ITEMS.map((item) => (

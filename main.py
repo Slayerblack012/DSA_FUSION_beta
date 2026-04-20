@@ -1,5 +1,5 @@
 """
-DSA Fusion Unified Launcher - Professional Startup Screen.
+DSA Autograder Unified Launcher - Professional Startup Screen.
 
 Features:
 - ASCII art branding
@@ -92,7 +92,7 @@ BANNER = """
 |   ██████╔╝███████╗   ██║       ███████║   ██║   ██║  ██║   |
 |   ╚═════╝ ╚══════╝   ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝   |
 |                                                            |
-|                  DSA-AGENT WORKBENCH                       |
+|                  DSA AUTOGRADER                            |
 |         AgentWorkBench |Powered by Hưng and Sang           |
 |                                                            |
 +-----------------------------------------------------------+
@@ -111,7 +111,7 @@ def _check_module(name):
 def _print_banner():
     """Print the startup banner with component checks."""
     print(BANNER)
-    print(f"  {Colors.bold('Initializing DSA Fusion...')}")
+    print(f"  {Colors.bold('Initializing DSA Autograder...')}")
     print(f"  {'-' * 58}")
 
 

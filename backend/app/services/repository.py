@@ -68,8 +68,17 @@ class GradingRepository:
     def get_baitap_criteria(self, *args, **kwargs):
         return self.legacy.get_baitap_criteria(*args, **kwargs)
 
+    def get_baitap_exercises(self, *args, **kwargs):
+        return self.legacy.get_baitap_exercises(*args, **kwargs)
+
     def save_runs(self, *args, **kwargs):
         return self.submissions.save_runs(*args, **kwargs)
+
+    def save_batch_results(self, *args, **kwargs):
+        return self.submissions.save_batch_results(*args, **kwargs)
+
+    def get_ctdl_assignment_codes(self):
+        return self.legacy.get_ctdl_assignment_codes()
 
     def close(self):
         self.db_manager.close()

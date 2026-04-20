@@ -45,7 +45,7 @@ _WEIGHT_AST = 0.20
 _WEIGHT_ALGORITHM = 0.05
 _WEIGHT_CONSTRAINT = 0.05
 _SCORING_POLICY_VERSION = "policy_v2_70_20_5_5"
-_BAITAP_MIN_CODE = "CTDL_D1_01"
+_BAITAP_MIN_CODE = "CTDL"
 _RUBRIC_MATCH_MIN_SCORE = 3.0
 _RUBRIC_MATCH_MIN_MARGIN = 0.75
 # When low-confidence rubric match, fall back to AST-only scoring instead of
@@ -995,17 +995,10 @@ class GradingService:
                 if best_match_idx != -1:
                     matched_ai = ai_raw_scores[best_match_idx]
                     used_ai_indices.add(best_match_idx)
-                else:
-                    # Fallback to unused sequential slots
-                    for idx, ai_item in enumerate(ai_raw_scores):
-                        if idx not in used_ai_indices:
-                            matched_ai = ai_item
-                            used_ai_indices.add(idx)
-                            break
-
+                
                 earned = 0.0
-                fb = "AI đánh giá: chưa có vấn đề nghiêm trọng."
-                ev = db_name
+                fb = f"AI chưa cung cấp đánh giá chi tiết cho tiêu chí: {db_name}."
+                ev = "Hệ thống sẽ đối chiếu thêm qua AST/Test."
 
                 if matched_ai:
                     try:

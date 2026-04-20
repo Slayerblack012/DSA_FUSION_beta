@@ -334,3 +334,15 @@ async def get_assignment_codes():
     container = get_container()
     db_repo = container.get_repository()
     return db_repo.get_ctdl_assignment_codes()
+
+
+@router.get("/assignments/{code}")
+async def get_assignment_detail(code: str):
+    container = get_container()
+    repo = container.get_repository()
+    # Find specific assignment detail
+    exercises = repo.get_baitap_exercises("CTDL")
+    for ex in exercises:
+        if ex["assignment_code"] == code:
+            return ex
+    raise HTTPException(status_code=404, detail="Không tìm thấy bài tập.")

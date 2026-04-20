@@ -13,7 +13,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "DSA Fusion | Học thuật & Giải thuật",
+  title: "DSA Autograder | Hệ thống chấm bài tự động",
   description: "Nền tảng đào tạo và đánh giá cấu trúc dữ liệu & giải thuật chuyên sâu",
 };
 

@@ -1,5 +1,5 @@
 // ============================================================
-// Shared TypeScript types for DSA Fusion Frontend
+// Shared TypeScript types for DSA Autograder Frontend
 // ============================================================
 
 export interface Feedback {

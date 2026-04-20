@@ -14,6 +14,7 @@ import {
   ResultsTab,
   SettingsTab,
   ConfirmDialog,
+  SystemToast,
 } from "@/components";
 
 // ============================================================
@@ -160,7 +161,10 @@ export default function EduPortal() {
 
   const notify = useCallback((type: "success" | "error", message: string) => {
     if (!systemSettings.enableNotifications) return;
-    type === "success" ? toast.success(message) : toast.error(message);
+    toast.custom((t) => <SystemToast t={t} message={message} />, {
+      duration: 5000,
+      position: "top-right"
+    });
   }, [systemSettings.enableNotifications]);
 
   const openConfirmDialog = (title: string, message: string, confirmText: string, onConfirm: () => void) => {

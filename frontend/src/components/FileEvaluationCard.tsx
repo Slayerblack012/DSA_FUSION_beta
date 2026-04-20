@@ -129,19 +129,21 @@ export const FileEvaluationCard = ({
 
                   {visibleCriteria.length > 0 ? (
                     <div className="grid grid-cols-1 gap-2">
-                      {visibleCriteria.map((criterion, cIdx) => {
+                      {visibleCriteria
+                        .filter((criterion) => {
+                          const label = String(criterion.sourceText || criterion.criterion || "").trim();
+                          // Extra hardening for post-submission results
+                          const isJunk = !label || label === "{" || label === "}" || label === "[" || label === "]" || label === ":" || label === ",";
+                          return !isJunk && !label.includes('"tieu_chi"') && !label.includes("tieu_chi:");
+                        })
+                        .map((criterion, cIdx) => {
                         const scorePercent = getScorePercent(criterion.earned, criterion.total);
                         const tone = getCriterionTone(scorePercent);
-                        const criterionLabel = (criterion.sourceText || criterion.criterion || "");
+                        const criterionLabel = (criterion.sourceText || criterion.criterion || "").replace(/^["']|["']$/g, "").trim();
                         return (
                           <div key={cIdx} className={`rounded-lg border p-3 ${tone.cardClass}`}>
                             <div className="flex items-start justify-between gap-3">
                               <div className="space-y-1">
-                                {/* {criterion.criteriaCode && (
-                                  <span className="inline-flex items-center rounded-md bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 font-mono">
-                                    {criterion.criteriaCode}
-                                  </span>
-                                )} */}
                                 <p className="text-[13px] font-medium text-gray-800 leading-relaxed whitespace-pre-wrap">
                                   {criterionLabel}
                                 </p>
@@ -248,22 +250,27 @@ function renderScoreProof(scoreProof: ScoreProof, fileScore: number) {
     []
   )
     .map((item) => {
-      const criterion = formatCriterionLabel(
-        String(
-          (item as { sourceText?: string; source_text?: string; name?: string })?.sourceText ||
-            (item as { sourceText?: string; source_text?: string; name?: string })?.source_text ||
-            item?.name ||
-            ""
-        )
-      );
-      const criteriaCode = String((item as { criteriaCode?: string; criteria_code?: string })?.criteriaCode || (item as { criteriaCode?: string; criteria_code?: string })?.criteria_code || "").trim();
+      const rawLabel = String(
+        (item as { sourceText?: string; source_text?: string; name?: string })?.sourceText ||
+          (item as { sourceText?: string; source_text?: string; name?: string })?.source_text ||
+          item?.name ||
+          ""
+      ).trim();
+
+      // STRICT FILTER: Skip JSON noise
+      if (!rawLabel || rawLabel === "{" || rawLabel === "}" || rawLabel === "[" || rawLabel === "]" || rawLabel.includes('"tieu_chi"')) {
+        return null;
+      }
+
+      const criterion = formatCriterionLabel(rawLabel);
       const earned = Number(item?.earned ?? 0);
       const total = Number(item?.max ?? 0);
+      
       if (!criterion || Number.isNaN(earned) || Number.isNaN(total) || total <= 0)
         return null;
+        
       return {
-        criterion,
-        criteriaCode,
+        criterion: criterion.replace(/^["']|["']$/g, "").trim(),
         earned,
         total,
         feedback: String(item?.feedback || "").trim(),
@@ -271,104 +278,52 @@ function renderScoreProof(scoreProof: ScoreProof, fileScore: number) {
       };
     })
     .filter(
-      (item): item is { criterion: string; criteriaCode: string; earned: number; total: number; feedback: string; evidence: string } =>
+      (item): item is { criterion: string; earned: number; total: number; feedback: string; evidence: string } =>
         item !== null
     );
 
-  const finalScore = Number(scoreProof.finalScore ?? fileScore);
-  const beforeScore = Number(scoreProof.rubricAdjustment?.before ?? finalScore);
-  const afterScore = Number(scoreProof.rubricAdjustment?.after ?? finalScore);
-
   if (proofItems.length === 0) {
     return (
-      <div className="rounded-md border border-emerald-100 bg-white p-4 text-[13px] text-gray-700 space-y-2">
-        <p>
-          Điểm cuối cùng là{" "}
-          <span className="font-semibold tabular-nums">{finalScore.toFixed(2)}</span>. Hệ thống
-          chưa nhận được bằng chứng chi tiết theo từng tiêu chí từ backend cho lần chấm này.
-        </p>
-        {scoreProof.formula && (
-          <p className="text-[12px] text-gray-500">
-            Công thức áp dụng: {scoreProof.formula}
-          </p>
-        )}
+      <div className="p-4 rounded-xl bg-white border border-emerald-100 text-[13px] text-gray-500 text-center italic">
+        Bằng chứng chi tiết sẽ được tự động cập nhật từ kết quả phân tích AI và Rubric.
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-md border border-emerald-100 bg-white p-4 text-[13px] text-gray-700">
-        <p>
-          Điểm cuối cùng:{" "}
-          <span className="font-semibold tabular-nums">{afterScore.toFixed(2)}</span>
-          {scoreProof.rubricAdjustment?.applied ? (
-            <>
-              {" "}
-              (chuẩn hóa rubric từ{" "}
-              <span className="font-semibold tabular-nums">{beforeScore.toFixed(2)}</span>)
-            </>
-          ) : null}
-          . Điểm được tổng hợp từ {proofItems.length} tiêu chí DB.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        {proofItems.map((item, idx) => {
-          const percent =
-            item.total > 0
-              ? Math.max(0, Math.min(100, (item.earned / item.total) * 100))
-              : 0;
-          const tone = getCriterionTone(percent);
-          return (
-            <div
-              key={`${item.criterion}-${idx}`}
-              className={`rounded-lg border p-3 ${tone.cardClass}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  {/* {item.criteriaCode && (
-                    <span className="inline-flex items-center rounded-md bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 font-mono">
-                      {item.criteriaCode}
-                    </span>
-                  )} */}
-                  <p className="text-[13px] font-medium text-gray-800 leading-relaxed max-w-2xl">
-                    {item.criterion}
-                  </p>
-                </div>
-                <span
-                  className={`text-[13px] font-semibold tabular-nums shrink-0 ${tone.textClass}`}
-                >
-                  {item.earned.toFixed(2)}/{item.total.toFixed(2)}
-                </span>
+    <div className="grid gap-3">
+      {proofItems.map((item, idx) => (
+        <div key={idx} className="bg-white rounded-xl p-5 border border-emerald-100 shadow-sm space-y-4">
+          <div className="flex justify-between items-start gap-4">
+            <h4 className="text-[14px] font-bold text-slate-800 flex items-start gap-2 leading-snug">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+              {item.criterion}
+            </h4>
+            <span className="text-[12px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full tabular-nums whitespace-nowrap">
+              {item.earned.toFixed(1)} / {item.total.toFixed(0)}
+            </span>
+          </div>
+          
+          <div className="grid gap-3 border-l-2 border-emerald-100/50 pl-4 ml-0.5">
+            {item.feedback && (
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70 block">Nguyên nhân (Reason)</span>
+                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                  {item.feedback}
+                </p>
               </div>
-              <div className="mt-2 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${tone.barClass}`}
-                  style={{ width: `${percent}%` }}
-                />
+            )}
+            {item.evidence && (
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70 block">Bằng chứng (Evidence)</span>
+                <p className="text-[13px] text-slate-500 italic bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-mono break-all">
+                  {item.evidence}
+                </p>
               </div>
-              <div className="mt-2 space-y-1 text-[12px] text-gray-700">
-                {item.feedback && (
-                  <p>
-                    <span className="font-semibold">Lý do:</span> {item.feedback}
-                  </p>
-                )}
-                {item.evidence && (
-                  <p>
-                    <span className="font-semibold">Chứng minh:</span> {item.evidence}
-                  </p>
-                )}
-                {!item.feedback && !item.evidence && (
-                  <p className="text-gray-500">
-                    Chưa có mô tả chi tiết cho tiêu chí này trong dữ liệu trả về.
-                  </p>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -379,99 +334,49 @@ function renderImprovements(
   adviceText: string
 ) {
   const improvementItems: string[] = [];
-
-  // Extract dynamically from adviceText using the Markdown headers generated by Backend
   if (adviceText) {
     let inTargetSection = false;
     const lines = adviceText.split("\n");
     for (const line of lines) {
       if (/^###\s*(lỗi và vấn đề cần sửa|gợi ý cải thiện|nhận xét chuyên môn)/i.test(line.trim())) {
-        inTargetSection = true;
-        continue;
+        inTargetSection = true; continue;
       } else if (/^###|^chi tiết chấm điểm/i.test(line.trim())) {
-        inTargetSection = false;
-        continue;
+        inTargetSection = false; continue;
       }
       if (inTargetSection) {
         const cleaned = line.replace(/^[-*•]\s*/, "").trim();
-        // Ignore generic scoring sentences
-        if (
-          cleaned &&
-          !/^[0-9.,]+\s*\/\s*[0-9.,]+đ?$/i.test(cleaned) &&
-          !/chi tiết chấm điểm/i.test(cleaned) &&
-          !/^xác định đúng/i.test(cleaned) &&
-          !/^bài nộp triển khai/i.test(cleaned) // ignore essay start
-        ) {
-          improvementItems.push(cleaned);
-        }
+        if (cleaned && !/^[0-9.,]+\s*\/\s*[0-9.,]+đ?$/i.test(cleaned)) improvementItems.push(cleaned);
       }
     }
   }
-
-  // Add structured parsed hints and issues
   parsedAdvice.improvements.forEach((imp) => improvementItems.push(imp));
-  parsedAdvice.issues.forEach((iss) => improvementItems.push(`Khắc phục: ${iss}`));
-
-  // Add real hints from test cases
   detailFeedbacks.forEach((fb) => {
-    if (fb.hint && !fb.hint.toLowerCase().includes("điểm bên dưới được chuẩn hóa")) {
-      improvementItems.push(fb.hint.trim());
-    }
+    if (fb.hint && !fb.hint.toLowerCase().includes("điểm bên dưới được chuẩn hóa")) improvementItems.push(fb.hint.trim());
   });
 
-  // Clean, filter, and deduplicate
   let finalItems = improvementItems
     .map(item => item.replace(/^Khắc phục:\s*/, "").trim())
-    .filter(item => item.length > 10) // Must be meaningful length
-    .filter((v, i, a) => a.findIndex((t) => t.toLowerCase() === v.toLowerCase()) === i);
-
-  // Ultimate Fallback: if no strict headers were found and the AI just returned a block of text
-  if (finalItems.length === 0 && adviceText) {
-    const sentences = adviceText
-      .split(/(?<=[.!?\n])\s+/)
-      .map(s => s.replace(/^[-*•]\s*/, "").trim())
-      .filter(s => s.length > 15) // ignore short fluff
-      .filter(s => !/^[0-9.,]+\s*\/\s*[0-9.,]+đ?$/i.test(s)) // ignore rubric score lines
-      .filter(s => !/chi tiết chấm điểm/i.test(s))
-      .filter(s => !/^xác định đúng/i.test(s))
-      .filter(s => !/đạt độ phức tạp/i.test(s))
-      .filter(s => !/^bài nộp triển khai/i.test(s)); // ignore essay openings
-
-    // Extract sentences with advice-oriented keywords
-    const adviceSentences = sentences.filter(s => /cần|nên|tối ưu|tuy nhiên|thay vì|lưu ý|hãy|gợi ý|khắc phục|cải thiện/i.test(s));
-
-    if (adviceSentences.length > 0) {
-      finalItems = adviceSentences;
-    } else {
-      // Just fallback to the remaining cleaned sentences if we couldn't even find keyword matches
-      finalItems = sentences.slice(0, 3);
-    }
-
-    finalItems = finalItems.filter((v, i, a) => a.findIndex((t) => t.toLowerCase() === v.toLowerCase()) === i);
-  }
-
-  finalItems = finalItems.slice(0, 5); // limit to a reasonable amount
+    .filter(item => item.length > 10)
+    .filter((v, i, a) => a.findIndex((t) => t.toLowerCase() === v.toLowerCase()) === i)
+    .slice(0, 4);
 
   if (finalItems.length === 0) {
     return (
-      <div className="card p-5 text-[14px] text-emerald-700 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center gap-3">
-        Giáo sư AI: &quot;Mã nguồn của em xử lý khá tinh tế và ổn định. Tiếp tục phát huy và lưu tâm thêm về tối ưu edge-case khi mở rộng bài toán nhé!&quot;
+      <div className="p-6 rounded-2xl bg-success/5 border border-success/10 text-center">
+         <p className="text-sm text-success font-medium italic">&quot;Giải thuật của em đã rất tối ưu. Hãy tiếp tục duy trì phong cách code sạch và hiệu quả này!&quot;</p>
       </div>
     );
   }
 
   return (
-    <div className="card p-5 space-y-3 bg-white border border-slate-200 shadow-sm rounded-xl">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {finalItems.map((item, idx) => (
-        <div
-          key={`improvement-${idx}`}
-          className="flex items-start gap-4 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200 group"
-        >
-          <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-[13px] font-bold shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-            {idx + 1}
-          </span>
-          <p className="text-[14.5px] text-slate-700 leading-relaxed font-medium">
-            {item.charAt(0).toUpperCase() + item.slice(1)}
+        <div key={idx} className="card-glass border-white/5 p-5 flex gap-4 hover:border-primary/30 transition-all group">
+          <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-all">
+            0{idx + 1}
+          </div>
+          <p className="text-[13px] text-text-main/80 leading-relaxed font-medium">
+            {item}
           </p>
         </div>
       ))}

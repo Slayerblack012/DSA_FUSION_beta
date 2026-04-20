@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import toast from "react-hot-toast";
+import { SystemToast } from "./SystemToast";
 import type { StudentInfo, SystemSettings } from "@/types";
 
 
@@ -42,6 +43,8 @@ export const SubmitForm = ({
   latest,
 }: SubmitFormProps) => {
   const [assignmentCodes, setAssignmentCodes] = React.useState<string[]>([]);
+  const [selectedAssignmentDetail, setSelectedAssignmentDetail] = React.useState<any>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = React.useState(false);
   const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim() || "http://127.0.0.1:8000";
   const API_BASE_URL = RAW_API_BASE_URL.replace("localhost", "127.0.0.1");
   React.useEffect(() => {
@@ -50,52 +53,35 @@ export const SubmitForm = ({
       .then((res) => res.json())
       .then((data) => setAssignmentCodes(data))
       .catch(() => {});
-}, []);
+  }, []);
+
+  React.useEffect(() => {
+    const code = (studentInfo as any).assignmentCode;
+    if (!code) {
+      setSelectedAssignmentDetail(null);
+      return;
+    }
+
+    setIsLoadingDetail(true);
+    fetch(`${API_BASE_URL}/submissions/assignments/${code}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setSelectedAssignmentDetail(data);
+      })
+      .catch(() => {
+        setSelectedAssignmentDetail(null);
+      })
+      .finally(() => {
+        setIsLoadingDetail(false);
+      });
+  }, [studentInfo, API_BASE_URL]);
   const showFileToast = useCallback(
     (type: "success" | "error" | "warning", title: string, description: string) => {
       if (!settings.enableNotifications) return;
-      toast.custom(
-        (t) => (
-          <div
-            className={`${t.visible ? "animate-enter" : "animate-leave"} max-w-md w-full bg-white shadow-xl rounded-xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 border-l-4 ${
-              type === "success"
-                ? "border-green-500"
-                : type === "error"
-                ? "border-red-500"
-                : "border-yellow-500"
-            }`}
-          >
-            <div className="flex-1 w-0 p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 pt-0.5">
-                  {type === "success" ? (
-                    <span className="h-10 w-10 text-green-500 bg-green-50 p-2 rounded-lg">✓</span>
-                  ) : type === "error" ? (
-                    <span className="h-10 w-10 text-red-500 bg-red-50 p-2 rounded-lg">✗</span>
-                  ) : (
-                    <span className="h-10 w-10 text-yellow-500 bg-yellow-50 p-2 rounded-lg">!</span>
-                  )}
-                </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm font-bold text-gray-900">{title}</p>
-                  <p className="mt-1 text-xs text-gray-500 leading-relaxed whitespace-pre-line">
-                    {description}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex border-l border-gray-100">
-              <button
-                onClick={() => toast.dismiss(t.id)}
-                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-xs font-semibold text-gray-400 hover:text-gray-600 focus:outline-none"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        ),
-        { duration: 5000 }
-      );
+      toast.custom((t) => <SystemToast t={t} message={description} />, {
+        duration: 5000,
+        position: "top-right"
+      });
     },
     [settings.enableNotifications]
   );
@@ -190,9 +176,9 @@ export const SubmitForm = ({
           </div>
         </div>
         <div className="relative">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Nộp bài tập DSA</h1>
-          <p className="text-sm md:text-base text-blue-100 mt-2 max-w-xl">
-            Kéo thả tệp bài làm và nhận kết quả đánh giá tự động kèm nhận xét chi tiết.
+          <h1 className="text-2xl md:text-4xl font-black tracking-tight uppercase">DSA <span className="text-white/80">AUTOGRADER</span></h1>
+          <p className="text-sm md:text-base text-blue-100 mt-2 max-w-xl font-medium">
+            Hệ thống chấm bài tự động. Vui lòng điền thông tin và tải lên mã nguồn Python.
           </p>
           <div className="grid grid-cols-3 gap-3 mt-6">
             {[
@@ -266,25 +252,59 @@ export const SubmitForm = ({
             </div>
           </div>
 
-          <div className="card p-5 lg:p-6 min-h-[210px]">
-            <h2 className="label-sm mb-4">Thông tin bài tập</h2>
-            <div className="rounded-lg border border-gray-100 bg-white divide-y divide-gray-100">
-              {[
-                { k: "Loại bài nộp", v: "Bài tập lập trình", icon: FileCode2 },
-                { k: "Chủ đề", v: "Thuật toán", icon: ClipboardList },
-                { k: "Đánh giá", v: "Tính đúng và hiệu quả", icon: ShieldCheck },
-              ].map((info, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-[minmax(0,200px)_1fr] items-center gap-4 px-3 py-3 text-[13px]"
-                >
-                  <span className="flex items-center gap-2 text-gray-500">
-                    <info.icon className="w-3.5 h-3.5" /> {info.k}
-                  </span>
-                  <span className="font-medium text-gray-800 text-left">{info.v}</span>
+          <div className="card p-5 lg:p-6 min-h-[210px] bg-slate-50/50">
+            <h2 className="label-sm mb-4 flex justify-between items-center text-blue-800">
+              <span>Yêu cầu & Tiêu chí chấm điểm</span>
+              {isLoadingDetail && <span className="animate-pulse text-[10px]">Đang tải...</span>}
+            </h2>
+            
+            {selectedAssignmentDetail ? (
+              <div className="space-y-4">
+                <div className="bg-white p-3 rounded-lg border border-blue-100">
+                  <p className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">Tên bài tập</p>
+                  <p className="text-sm font-semibold text-gray-800">{selectedAssignmentDetail.title}</p>
                 </div>
-              ))}
-            </div>
+
+                <div className="bg-white p-3 rounded-lg border border-gray-100">
+                  <p className="text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Mô tả bài toán</p>
+                  <p className="text-[13px] text-gray-600 leading-relaxed whitespace-pre-wrap">
+                    {selectedAssignmentDetail.description || "Không có mô tả chi tiết."}
+                  </p>
+                </div>
+
+                <div className="bg-white p-3 rounded-lg border border-emerald-100 shadow-sm">
+                  <p className="text-xs font-bold text-emerald-600 mb-2 uppercase tracking-wider">Hệ thống tiêu chí (Rubric)</p>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto thin-scroll pr-1">
+                    {selectedAssignmentDetail.criteria && selectedAssignmentDetail.criteria.length > 0 ? (
+                      selectedAssignmentDetail.criteria
+                        .filter((c: any) => {
+                          const name = String(c.name || "").trim();
+                          // Extra hardening to strip technical trash
+                          const isJunk = !name || name === "{" || name === "}" || name === "[" || name === "]" || name === ":" || name === ",";
+                          return !isJunk && !name.includes('"tieu_chi"') && !name.includes("tieu_chi:");
+                        })
+                        .map((c: any, index: number) => (
+                        <div key={index} className="flex justify-between items-start gap-3 p-2 bg-emerald-50/30 rounded border border-emerald-50">
+                          <span className="text-[13px] text-gray-700 leading-tight">
+                            {c.name}
+                          </span>
+                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/50 px-1.5 py-0.5 rounded shrink-0">
+                            {c.max_score}đ
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">Dựa vào phân tích logic & thuật toán DSA tổng quát.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-40 flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-slate-200 rounded-xl bg-white">
+                <ClipboardList className="w-8 h-8 text-slate-300 mb-2" />
+                <p className="text-xs text-slate-400">Vui lòng chọn Mã bài tập để xem chi tiết tiêu chí chấm điểm từ hệ thống.</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -349,13 +369,13 @@ export const SubmitForm = ({
             )}
           </div>
 
-          <div className="sticky bottom-2 pt-2 bg-gradient-to-t from-[#fffbf7] via-[#fffbf7]/90 to-transparent">
+          <div className="sticky bottom-2 pt-2 bg-gradient-to-t from-white via-white/90 to-transparent">
             <button
               onClick={handleValidate}
               disabled={isSubmitting || files.length === 0}
               className="btn-primary w-full h-12 lg:h-14 text-[15px]"
             >
-              Nộp bài và chấm điểm
+              {isSubmitting ? "Đang chuẩn bị chấm điểm..." : "Nộp bài và chấm điểm"}
             </button>
           </div>
         </div>
