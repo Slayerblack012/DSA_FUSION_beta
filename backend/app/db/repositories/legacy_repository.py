@@ -47,7 +47,8 @@ class LegacyRepository(BaseRepository):
                         parts = re.split(r'[;\n]+', raw_criteria)
                         for p in parts:
                             p_clean = self._clean_criterion_name(p)
-                            if not p_clean or len(p_clean) < 3: continue
+                            if not p_clean or len(p_clean) < 3:
+                                continue
                             
                             score_match = re.search(r'\((\d+\.?\d*)\s*[đd]\)', p, re.I)
                             results.append({
@@ -98,7 +99,8 @@ class LegacyRepository(BaseRepository):
                         parts = re.split(r'[;\n]+', raw_criteria)
                         for p in parts:
                             p_clean = self._clean_criterion_name(p)
-                            if not p_clean or len(p_clean) < 3: continue
+                            if not p_clean or len(p_clean) < 3:
+                                continue
                             
                             score_match = re.search(r'\((\d+\.?\d*)\s*[đd]\)', p, re.I)
                             criteria_list.append({

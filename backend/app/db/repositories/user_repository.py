@@ -9,7 +9,8 @@ class UserRepository(BaseRepository):
         try:
             with self.get_session() as session:
                 user = session.query(User).filter(User.username == username).first()
-                if not user: return None
+                if not user:
+                    return None
                 return {
                     "id": user.id, 
                     "username": user.username, 

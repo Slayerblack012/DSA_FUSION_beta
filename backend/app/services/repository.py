@@ -86,5 +86,6 @@ class GradingRepository:
     def __del__(self):
         try:
             self.close()
-        except: pass
+        except Exception:
+            pass
 

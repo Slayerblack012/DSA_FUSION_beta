@@ -56,7 +56,8 @@ class DatabaseManager:
                     conn.execute(text(f"ALTER TABLE grading_history {prefix} {col_name} {col_type}"))
                     conn.commit()
                     logger.info("Database Migration: Added %s", col_name)
-                except Exception: pass
+                except Exception:
+                    pass
             
     @contextmanager
     def get_session(self) -> Generator[Session, None, None]:
