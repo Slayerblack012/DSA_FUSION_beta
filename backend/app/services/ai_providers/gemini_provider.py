@@ -3,7 +3,7 @@ import asyncio
 import time
 import json
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from concurrent.futures import ThreadPoolExecutor
 
 try:
@@ -123,10 +123,11 @@ class GeminiProvider:
             if not content:
                 # Check for blocking
                 reason = "BLOCKED_OR_EMPTY"
-                try: 
+                try:
                     if hasattr(response, 'candidates') and response.candidates:
                         reason = f"FinishReason: {response.candidates[0].finish_reason}"
-                except: pass
+                except Exception:
+                    pass
                 
                 return AIResponse(
                     content="", model=self._model_name, usage={},
@@ -192,7 +193,7 @@ class GeminiProvider:
             try:
                 # Flatten lines to remove literal newlines inside strings
                 lines = content.splitlines()
-                content = " ".join([l.strip() for l in lines if l.strip()])
+                content = " ".join([line.strip() for line in lines if line.strip()])
                 
                 # Polish: fix trailing commas and single-quoted property names
                 content = re.sub(r',\s*([\]}])', r'\1', content)

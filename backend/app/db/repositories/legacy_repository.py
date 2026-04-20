@@ -1,6 +1,4 @@
 import re
-import json
-import logging
 from typing import List, Dict, Optional
 from sqlalchemy import text
 from app.db.repositories.base import BaseRepository
@@ -9,7 +7,8 @@ class LegacyRepository(BaseRepository):
     """Handles integration with legacy SQL Server tables (dbo.BAITAP)."""
 
     def _clean_criterion_name(self, name: str) -> str:
-        if not name: return ""
+        if not name:
+            return ""
         # Remove JSON artifacts and specific keys
         clean = name.replace('{', '').replace('}', '').replace('[', '').replace(']', '')
         clean = clean.replace('"tieu_chi":', '').replace('"criteria":', '').replace('"items":', '')
@@ -84,7 +83,8 @@ class LegacyRepository(BaseRepository):
 
     def get_baitap_exercises(self, min_code: str = "CTDL_D1_01") -> List[Dict]:
         """Fetch full exercise data using MaBaiTap column."""
-        if not self.db.is_sql_server: return []
+        if not self.db.is_sql_server:
+            return []
         try:
             with self.get_session() as session:
                 query = "SELECT MaBaiTap, TenBaiTap, TieuChiChamDiem, MoTa FROM BAITAP WHERE MaBaiTap LIKE 'CTDL%' AND MaBaiTap >= :min_code AND (IsDeleted = 0 OR IsDeleted IS NULL)"

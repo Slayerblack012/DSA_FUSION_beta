@@ -1,5 +1,4 @@
 import logging
-from sqlalchemy.orm import Session
 from app.db.session import DatabaseManager
 
 class BaseRepository:

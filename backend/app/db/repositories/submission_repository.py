@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
-from sqlalchemy import desc, func, case, text
+from sqlalchemy import desc, func, case
 from app.db.repositories.base import BaseRepository
 from app.models.models import GradingHistory, RunResult
 from app.utils.security import calculate_jaccard_similarity
@@ -58,9 +58,12 @@ class SubmissionRepository(BaseRepository):
         try:
             with self.get_session() as session:
                 query = session.query(GradingHistory)
-                if filters.get("student_id"): query = query.filter(GradingHistory.student_id == filters["student_id"])
-                if filters.get("assignment_code"): query = query.filter(GradingHistory.assignment_code == filters["assignment_code"])
-                if filters.get("status") and filters["status"] != "all": query = query.filter(GradingHistory.status == filters["status"])
+                if filters.get("student_id"):
+                    query = query.filter(GradingHistory.student_id == filters["student_id"])
+                if filters.get("assignment_code"):
+                    query = query.filter(GradingHistory.assignment_code == filters["assignment_code"])
+                if filters.get("status") and filters["status"] != "all":
+                    query = query.filter(GradingHistory.status == filters["status"])
                 
                 total = query.count()
                 records = query.order_by(desc(GradingHistory.submitted_at)).offset((page-1)*page_size).limit(page_size).all()
@@ -93,14 +96,13 @@ class SubmissionRepository(BaseRepository):
         try:
             with self.get_session() as session:
                 score_col = func.coalesce(GradingHistory.final_score, GradingHistory.total_score)
-                thirty_days_ago = datetime.now() - timedelta(days=30)
 
                 agg = session.query(
                     func.count(GradingHistory.id).label('total'),
                     func.count(func.distinct(GradingHistory.student_id)).label('total_students'),
                     func.avg(score_col).label('avg'),
                     func.max(score_col).label('max'),
-                    func.sum(case((GradingHistory.plagiarism_detected == True, 1), else_=0)).label('plag_count'),
+                    func.sum(case((GradingHistory.plagiarism_detected, 1), else_=0)).label('plag_count'),
                     func.sum(case((score_col >= 5.0, 1), else_=0)).label('pass_count')
                 ).first()
 
@@ -121,10 +123,12 @@ class SubmissionRepository(BaseRepository):
 
         saved_ids = []
         for res in results:
-            if assignment_code: res["assignment_code"] = assignment_code
+            if assignment_code:
+                res["assignment_code"] = assignment_code
             try:
                 saved_ids.append(self.save_result(res))
-            except Exception: continue
+            except Exception:
+                continue
         return saved_ids
 
     def get_student_scores(self, student_id: str, page: int = 1, page_size: int = 20) -> Dict:
@@ -143,7 +147,8 @@ class SubmissionRepository(BaseRepository):
                     GradingHistory.submitted_at >= cutoff,
                     GradingHistory.fingerprint != ""
                 )
-                if topic: query = query.filter(GradingHistory.topic == topic)
+                if topic:
+                    query = query.filter(GradingHistory.topic == topic)
                 
                 records = query.order_by(desc(GradingHistory.submitted_at)).limit(500).all()
                 matches = []

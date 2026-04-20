@@ -1,6 +1,5 @@
 import json
 from typing import List, Dict, Optional
-from datetime import datetime
 from app.db.repositories.base import BaseRepository
 from app.models.models import Rubric, ManualGrade, GradingHistory
 

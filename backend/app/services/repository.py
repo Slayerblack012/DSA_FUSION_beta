@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from app.db.session import DatabaseManager
 from app.db.repositories.user_repository import UserRepository
 from app.db.repositories.submission_repository import SubmissionRepository
