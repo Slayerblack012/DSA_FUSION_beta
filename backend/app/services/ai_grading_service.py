@@ -670,12 +670,16 @@ OUTPUT_JSON (chỉ JSON):
         
         # 2. Detail lists
         evidence_based_issues = response.get("evidence_based_issues", [])
-        if isinstance(evidence_based_issues, str): evidence_based_issues = [evidence_based_issues]
-        elif not isinstance(evidence_based_issues, list): evidence_based_issues = []
+        if isinstance(evidence_based_issues, str):
+            evidence_based_issues = [evidence_based_issues]
+        elif not isinstance(evidence_based_issues, list):
+            evidence_based_issues = []
             
         actionable_suggestions = response.get("actionable_suggestions", [])
-        if isinstance(actionable_suggestions, str): actionable_suggestions = [actionable_suggestions]
-        elif not isinstance(actionable_suggestions, list): actionable_suggestions = []
+        if isinstance(actionable_suggestions, str):
+            actionable_suggestions = [actionable_suggestions]
+        elif not isinstance(actionable_suggestions, list):
+            actionable_suggestions = []
 
         if not evidence_based_issues:
             evidence_based_issues = [
@@ -749,7 +753,7 @@ OUTPUT_JSON (chỉ JSON):
         """Heuristic result when AI is unavailable.
         Score is conservative (max 5.0) to avoid inflating grades when AI is down.
         """
-        line_count = max(1, len([l for l in code.split("\n") if l.strip()]))
+        line_count = max(1, len([line for line in code.split("\n") if line.strip()]))
         # Conservative: cap at 5.0 so students aren't over-rewarded on AI failure
         score = min(5.0, round(2.0 + line_count * 0.05, 1))
         reason_suffix = f" Chi tiết: {error_reason}." if error_reason else ""

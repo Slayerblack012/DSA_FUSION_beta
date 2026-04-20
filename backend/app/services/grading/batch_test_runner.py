@@ -16,7 +16,7 @@ Features:
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 from app.core.config import SANDBOX_MAX_CPU_TIME, SANDBOX_MAX_MEMORY_MB
 from app.utils.sandbox import SandboxResult, run_python_sandbox_batch

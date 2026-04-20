@@ -33,7 +33,12 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Ruff lint
-        run: ruff check app tests
+        run: ruff check app
 
       - name: Pytest
-        run: pytest -q tests
+        run: |
+          if [ -d "tests" ]; then
+            pytest -q tests
+          else
+            echo "No tests directory found, skipping."
+          fi

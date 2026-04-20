@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from app.core.config import AI_MODEL_NAME, AI_PROVIDER, DB_FILE, GEMINI_API_KEY, REDIS_URL, SQL_SERVER_URL
+from app.core.config import AI_MODEL_NAME, DB_FILE, GEMINI_API_KEY, REDIS_URL, SQL_SERVER_URL
 
 logger = logging.getLogger("dsa.container")
 
@@ -89,8 +89,6 @@ class Container:
         self._health_status: Dict[str, ComponentHealth] = {}
 
         # Configuration snapshot
-        from app.core.config import (AI_MODEL_NAME, AI_PROVIDER, DB_FILE,
-                                     GEMINI_API_KEY, REDIS_URL, SQL_SERVER_URL)
         self._config = {
             "ai_provider": "gemini",
             "gemini_api_key": GEMINI_API_KEY,

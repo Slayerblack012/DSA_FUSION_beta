@@ -124,7 +124,7 @@ Rubric:
     cost_before = original_est_tokens / 1000 * cost_per_1k_tokens
     cost_after = current_est_tokens / 1000 * cost_per_1k_tokens
 
-    print(f"Cost per API call (Gemini 1.5 Flash input):")
+    print("Cost per API call (Gemini 1.5 Flash input):")
     print("-" * 70)
     print(f"  Before: ${cost_before:.6f}")
     print(f"  After:  ${cost_after:.6f}")

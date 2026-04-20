@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.grading.constants import SCORING_CONSTANTS, CodeFeatures
 from app.services.testcase_loader import get_test_cases
-from app.utils.sandbox import run_python_sandbox
 
 # ═══════════════════════════════════════════
 #  Static Test Score

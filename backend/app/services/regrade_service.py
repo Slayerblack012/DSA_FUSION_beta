@@ -4,13 +4,11 @@ DSA AutoGrader - Regrade Service.
 Provides comprehensive regrade functionality for instructors.
 """
 
-import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from app.containers.container import get_container
-from app.core.models import GradingResult
 from app.services.grading_service import GradingService
 
 logger = logging.getLogger("dsa.services.regrade")

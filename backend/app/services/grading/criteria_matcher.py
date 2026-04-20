@@ -16,7 +16,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from app.core.models import GradingResult
 
 logger = logging.getLogger("dsa.criteria_matcher")
 

@@ -13,7 +13,7 @@ Security Note:
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # Re-export everything from the grading sub-package
 from app.services.grading.constants import SCORING_CONSTANTS

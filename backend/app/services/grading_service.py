@@ -14,12 +14,12 @@ import time
 import unicodedata
 from typing import Any, Dict, List, Optional
 
-from app.core.config import MAX_CONCURRENT_AI_CALLS, PORT
+from app.core.config import MAX_CONCURRENT_AI_CALLS
 from app.core.models import GradingResult
 from app.services.ai_grading_service import AIGradingService
 from app.services.ast_grader import DSALightningGrader
 from app.services.plagiarism_service import PlagiarismService
-from app.services.grading.criteria_matcher import CriteriaMatcher, criteria_matcher
+from app.services.grading.criteria_matcher import criteria_matcher
 
 logger = logging.getLogger("dsa.services.grading")
 

@@ -18,7 +18,6 @@ import bcrypt
 import jwt
 
 from app.core.config import JWT_SECRET_KEY, IS_PRODUCTION
-from app.utils.audit_logger import audit_auth_login, audit_auth_logout
 
 logger = logging.getLogger("dsa.auth")
 

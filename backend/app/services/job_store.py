@@ -13,11 +13,10 @@ import json
 import logging
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
 from collections import deque
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Optional, Set
 
-from app.core.config import JOB_TTL_SECONDS, REDIS_URL, MAX_HISTORY_ROWS
+from app.core.config import JOB_TTL_SECONDS, REDIS_URL
 
 logger = logging.getLogger("dsa.job_store")
 

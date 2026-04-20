@@ -214,6 +214,6 @@ print("BST created successfully")
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     result = seed_demo_data()
-    print(f"\n✅ Seeding completed!")
+    print("\n✅ Seeding completed!")
     print(f"   Users: {result['users_created']}")
     print(f"   Submissions: {result['submissions_created']}")

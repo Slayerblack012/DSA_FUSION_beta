@@ -1,18 +1,16 @@
-import json
 import logging
 import time
 import uuid
 from typing import List, Optional, Tuple
 
-from fastapi import APIRouter, File, Form, Query, UploadFile, HTTPException, Body, Depends
+from fastapi import APIRouter, File, Form, Query, UploadFile, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
-from starlette.concurrency import run_in_threadpool
 
 from app.containers.container import get_container
 from app.core.config import ENVIRONMENT, IS_PRODUCTION
 from app.services.ast_grader import sanitize_code_input
 from app.services.grading_service import GradingService
-from app.services.job_store import _job_store, get_job_store
+from app.services.job_store import get_job_store
 from app.utils.archive_handler import extract_archive, is_archive_file
 from app.utils.metrics import generate_metrics
 

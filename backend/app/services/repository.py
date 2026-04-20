@@ -4,7 +4,7 @@ import re
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from urllib.parse import quote_plus
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional
 import os 
 from sqlalchemy import create_engine, desc, func, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -14,7 +14,6 @@ from app.core.config import DB_FILE
 from app.utils.security import calculate_jaccard_similarity
 from app.models.models import Base, User, GradingHistory, RunResult, Rubric, ManualGrade
 
-import logging
 logger = logging.getLogger("dsa.repository")
 
 class GradingRepository:

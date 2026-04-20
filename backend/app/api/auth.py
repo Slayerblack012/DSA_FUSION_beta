@@ -8,8 +8,7 @@ Features:
 - Auth statistics
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Form, Header, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Form, Header, Request
 import logging
 
 from app.containers.container import get_container
@@ -17,7 +16,7 @@ from app.utils.auth import (
     verify_password,
     create_access_token,
     create_refresh_token,
-    refresh_access_token,
+    refresh_access_token as refresh_access_token_util,
     revoke_token,
     verify_token,
     get_token_stats,
@@ -93,7 +92,7 @@ async def refresh_access_token(
     """
     client_ip = request.client.host if request.client else "unknown"
 
-    result = refresh_access_token(refresh_token_str)
+    result = refresh_access_token_util(refresh_token_str)
     if not result:
         audit_auth_login("refresh", success=False, ip=client_ip, detail="Invalid/expired refresh token")
         raise HTTPException(status_code=401, detail="Refresh token expired or invalid. Please login again.")

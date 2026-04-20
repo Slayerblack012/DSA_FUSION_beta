@@ -16,7 +16,6 @@ import sys
 import tempfile
 import threading
 import time
-import traceback
 from dataclasses import dataclass
 from typing import Optional
 

@@ -8,7 +8,7 @@ Coordinates all scoring components:
 
 import ast
 import time
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 
 from app.services.grading.constants import SCORING_CONSTANTS
 from app.services.grading.extractor import ASTFeatureExtractor

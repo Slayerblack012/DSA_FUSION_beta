@@ -175,7 +175,6 @@ def setup_logging(
 
     # Create console handler with UTF-8 encoding support
     # On Windows, we need to ensure the stream supports UTF-8 to avoid UnicodeEncodeError with emojis
-    import io
     stream = sys.stdout
     if sys.platform == "win32":
         # Wrap stdout with a UTF-8 encoder if it's not already

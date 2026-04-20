@@ -111,7 +111,7 @@ def estimate_complexity(features: ASTFeatures) -> ComplexityReport:
 
     # Add notes for specific patterns
     if has_recursion:
-        notes.append(f"Recursion detected (depth contributing to complexity)")
+        notes.append("Recursion detected (depth contributing to complexity)")
     if max_loop_depth >= 3:
         notes.append(f"Deep nesting: {max_loop_depth} nested loops detected")
 

@@ -15,7 +15,6 @@ import ast
 import hashlib
 import logging
 import re
-from collections import Counter
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app.core.models import GradingResult
@@ -515,8 +514,7 @@ class PlagiarismService:
                     result1.plagiarism_detected = True
                     result2.plagiarism_detected = True
 
-        if alerts:
-            logger.warning("Found %d intra-job plagiarism alerts", len(alerts))
+        logger.warning("Found %d intra-job plagiarism alerts", len(alerts))
 
         return alerts
 
@@ -667,10 +665,12 @@ class PlagiarismService:
             return await self._ai.generate_json(prompt)
         except Exception as e:
             logger.error("AI Plagiarism analysis failed: %s", e)
+            # Use max(ast_node_sim, token_sim, structural_sim) as fallback
+            fallback_sim = max(ast_node_sim, token_sim, structural_sim)
             return {
                 "error": str(e),
                 "is_plagiarism": False,
-                "similarity_score": basic_sim * 100,
+                "similarity_score": fallback_sim * 100,
             }
 
     def get_stats(self) -> Dict[str, Any]:
