@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+
+# Install necessary requirements for sandbox execution (such as diff)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    diffutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add a non-root user to run the untrusted code
+RUN useradd -m -s /bin/bash sandboxuser
+USER sandboxuser
+
+WORKDIR /sandbox
+
+# Disallow standard network interaction by not setting up curl/wget
+# Will restrict resource via docker --cpus --memory 
+# the Python code will be injected via `docker run -v` or stdin
+ENTRYPOINT ["python3"]

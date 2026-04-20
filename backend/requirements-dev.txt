@@ -1,0 +1,10 @@
+# ===========================================
+# DSA AutoGrader - Development / Security Tools
+# ===========================================
+
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+ruff>=0.6.0
+bandit>=1.7.9
+pre-commit>=3.7.0
+detect-secrets>=1.5.0

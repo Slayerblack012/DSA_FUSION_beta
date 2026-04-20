@@ -1,0 +1,55 @@
+"""
+DSA AutoGrader - Core Package.
+
+Application configuration and constants.
+"""
+
+from app.core.config import (  # Environment; API Keys; Database; AI Settings; Grading; Security; Logging; Scoring; Paths
+    AI_MAX_OUTPUT_TOKENS, AI_MODEL_NAME, AI_MODEL_TEMPERATURE, AI_PROVIDER,
+    BASE_DIR, DATA_DIR, DB_FILE, ENVIRONMENT, GEMINI_API_KEY, IS_DEVELOPMENT,
+    IS_PRODUCTION, IS_TESTING, LOG_FORMAT, LOG_LEVEL, LOGS_DIR,
+    MAX_CONCURRENT_AI_CALLS, MAX_UPLOAD_SIZE_MB, METRICS_ENABLED,
+    MY_SECRET_KEY, PASS_SCORE_THRESHOLD, PLAGIARISM_THRESHOLD,
+    RATE_LIMIT_ENABLED, RATE_LIMIT_PER_HOUR, RATE_LIMIT_PER_MINUTE, REDIS_URL,
+    SANDBOX_MAX_CPU_TIME, SANDBOX_MAX_MEMORY_MB, SQL_SERVER_URL,
+    TESTCASE_ROOT)
+
+__all__ = [
+    # Environment
+    "ENVIRONMENT",
+    "IS_PRODUCTION",
+    "IS_DEVELOPMENT",
+    "IS_TESTING",
+    # API Keys
+    "AI_PROVIDER",
+    "GEMINI_API_KEY",
+    "MY_SECRET_KEY",
+    # Database
+    "SQL_SERVER_URL",
+    "REDIS_URL",
+    "DB_FILE",
+    # AI Settings
+    "AI_MODEL_NAME",
+    "AI_MODEL_TEMPERATURE",
+    "AI_MAX_OUTPUT_TOKENS",
+    # Grading
+    "PLAGIARISM_THRESHOLD",
+    "PASS_SCORE_THRESHOLD",
+    "MAX_CONCURRENT_AI_CALLS",
+    # Security
+    "RATE_LIMIT_ENABLED",
+    "RATE_LIMIT_PER_MINUTE",
+    "RATE_LIMIT_PER_HOUR",
+    "SANDBOX_MAX_MEMORY_MB",
+    "SANDBOX_MAX_CPU_TIME",
+    "MAX_UPLOAD_SIZE_MB",
+    # Logging
+    "LOG_LEVEL",
+    "LOG_FORMAT",
+    "METRICS_ENABLED",
+    # Paths
+    "BASE_DIR",
+    "TESTCASE_ROOT",
+    "DATA_DIR",
+    "LOGS_DIR",
+]

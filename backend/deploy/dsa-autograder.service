@@ -1,0 +1,38 @@
+[Unit]
+Description=DSA AutoGrader Service
+After=network.target redis-server.service
+
+[Service]
+Type=notify
+User=dsa
+Group=dsa
+WorkingDirectory=/opt/dsa-autograder
+Environment="PATH=/opt/dsa-autograder/venv/bin"
+ExecStart=/opt/dsa-autograder/venv/bin/gunicorn app.main:app \
+    --workers 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 0.0.0.0:8000 \
+    --timeout 120 \
+    --access-logfile /var/log/dsa-autograder/access.log \
+    --error-logfile /var/log/dsa-autograder/error.log \
+    --capture-output \
+    --enable-stdio-inheritance
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dsa-autograder
+
+# Security Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/dsa-autograder /var/lib/dsa-autograder
+
+# Resource Limits
+LimitNOFILE=65535
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
