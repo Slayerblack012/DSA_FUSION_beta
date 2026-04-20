@@ -240,7 +240,6 @@ class BatchTestRunner:
 
         # Run all test cases in batch
         inputs = [tc.input_data for tc in test_cases]
-        total_timeout = effective_timeout * len(inputs) + 2  # Buffer
 
         start_time = time.time()
         try:

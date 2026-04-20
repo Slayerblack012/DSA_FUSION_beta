@@ -239,12 +239,13 @@ class GradingService:
             # Enrich with test summary so DB has aggregated pass rate
             test_results = d.get("test_results") or []
             if test_results:
-                passed = sum(1 for t in test_results if t.get("passed"))
+                test_passed = sum(1 for t in test_results if t.get("passed"))
+                test_total = len(test_results)
                 d["test_summary"] = {
-                    "total": len(test_results),
-                    "passed": passed,
-                    "failed": len(test_results) - passed,
-                    "pass_rate": round(passed / len(test_results), 4),
+                    "total": test_total,
+                    "passed": test_passed,
+                    "failed": test_total - test_passed,
+                    "pass_rate": round(test_passed / test_total, 4),
                 }
             dicts_to_save.append(d)
 
@@ -1007,8 +1008,10 @@ class GradingService:
                 ev = db_name
 
                 if matched_ai:
-                    try: earned = float(matched_ai.get("earned") or 0.0)
-                    except: earned = 0.0
+                    try:
+                        earned = float(matched_ai.get("earned") or 0.0)
+                    except Exception:
+                        earned = 0.0
                     earned = max(0.0, min(earned, db_max))
                     fb = matched_ai.get("feedback") or fb
                     ev = matched_ai.get("evidence") or ev
@@ -1028,7 +1031,8 @@ class GradingService:
             result.criteria_scores = criteria_results 
 
             # 4. HIỆN BOX BẰNG CHỨNG: Cấp đúng key criteria_results cho Frontend
-            if not isinstance(result.score_proof, dict): result.score_proof = {}
+            if not isinstance(result.score_proof, dict):
+                result.score_proof = {}
             result.score_proof["rubric_adjustment"] = {
                 "applied": True,
                 "after": result.total_score,
