@@ -76,6 +76,43 @@ class AIGradingServiceRubricCoverageTests(unittest.TestCase):
         self.assertIsNotNone(result.improvement)
         self.assertIn("Em đã", result.improvement)
 
+    def test_parse_strictly_removes_criteria_outside_rubric(self) -> None:
+        response = {
+            "normalized_score_10": 8.0,
+            "status": "AC",
+            "criteria_scores": [
+                {
+                    "criterion": "Đúng thuật toán",
+                    "earned": 4,
+                    "max": 6,
+                    "feedback": "ok",
+                    "evidence": "ok",
+                },
+                {
+                    "criterion": "Tiêu chí ngoài rubric",
+                    "earned": 2,
+                    "max": 4,
+                    "feedback": "ok",
+                    "evidence": "ok",
+                },
+            ],
+            "technical_review": "Đủ ổn.",
+            "evidence_based_issues": [],
+            "actionable_suggestions": ["Em làm tốt."],
+            "big_o": "O(n)",
+        }
+        rubric_context = {
+            "criteria": [
+                {"name": "Đúng thuật toán", "max_score": 6},
+            ]
+        }
+
+        result = AIGradingService._parse(response, "bai.py", rubric_context=rubric_context)
+
+        self.assertIsNotNone(result.criteria_scores)
+        self.assertEqual(len(result.criteria_scores), 1)
+        self.assertEqual(result.criteria_scores[0]["criterion"], "Đúng thuật toán")
+
 
 if __name__ == "__main__":
     unittest.main()

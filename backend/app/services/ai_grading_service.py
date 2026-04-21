@@ -540,7 +540,12 @@ OUTPUT_JSON (chỉ JSON):
                 raise ValueError("AI response was not meaningful enough to trust")
             trace("verify", "ok", "Response passed validation")
                 
-            result = self._parse(response, filename, agent_trace=agent_trace)
+            result = self._parse(
+                response,
+                filename,
+                rubric_context=rubric_context,
+                agent_trace=agent_trace,
+            )
 
             # Cache result
             self._response_cache[cache_key] = (time.time(), result)
@@ -753,14 +758,36 @@ OUTPUT_JSON (chỉ JSON):
         if not isinstance(current_scores, list):
             current_scores = []
 
+        rubric_names = [item["name"] for item in rubric_items]
+        rubric_name_set = set(rubric_names)
+
         score_by_name: Dict[str, Dict[str, Any]] = {}
+        extras_removed: List[str] = []
         for item in current_scores:
             if not isinstance(item, dict):
                 continue
             name = str(item.get("criterion") or item.get("name") or "").strip()
             if not name:
                 continue
+            if name not in rubric_name_set:
+                extras_removed.append(name)
+                continue
             score_by_name[name] = item
+
+        if extras_removed:
+            logger.warning(
+                "[AUDIT] Removed %d criteria outside rubric: %s",
+                len(extras_removed),
+                extras_removed,
+            )
+
+        missing_in_model = [name for name in rubric_names if name not in score_by_name]
+        if missing_in_model:
+            logger.warning(
+                "[AUDIT] AI missed %d rubric criteria, auto-filled with 0 earned: %s",
+                len(missing_in_model),
+                missing_in_model,
+            )
 
         enforced_scores: List[Dict[str, Any]] = []
         total_earned = 0.0
@@ -821,6 +848,7 @@ OUTPUT_JSON (chỉ JSON):
     def _parse(
         response: Dict[str, Any],
         filename: str,
+        rubric_context: Optional[Dict[str, Any]] = None,
         agent_trace: Optional[List[Dict[str, Any]]] = None,
     ) -> GradingResult:
         """Parse the AI response dict into a ``GradingResult``."""
@@ -839,6 +867,12 @@ OUTPUT_JSON (chỉ JSON):
         criteria_scores = response.get("criteria_scores", [])
         if not isinstance(criteria_scores, list):
             criteria_scores = []
+
+        allowed_criteria_names = {
+            item["name"] for item in AIGradingService._extract_rubric_items(rubric_context)
+        }
+        dropped_non_rubric: List[str] = []
+
         normalized_criteria_scores: List[Dict[str, Any]] = []
         for item in criteria_scores:
             if not isinstance(item, dict):
@@ -846,6 +880,9 @@ OUTPUT_JSON (chỉ JSON):
             criterion = str(item.get("criterion") or item.get("name") or "").strip()
             # Filter out JSON garbage names or very short hallucinated delimiters
             if not criterion or criterion in ['{', '}', '[', ']', ':', ',', '"', '""'] or criterion.startswith('"tieu_chi"') or criterion.startswith('tieu_chi'):
+                continue
+            if allowed_criteria_names and criterion not in allowed_criteria_names:
+                dropped_non_rubric.append(criterion)
                 continue
             try:
                 earned = float(item.get("earned", 0) or 0)
@@ -864,6 +901,14 @@ OUTPUT_JSON (chỉ JSON):
                 "feedback": feedback,
                 "evidence": evidence,
             })
+
+        if dropped_non_rubric:
+            logger.warning(
+                "[AUDIT] Parse dropped %d criteria outside rubric for %s: %s",
+                len(dropped_non_rubric),
+                filename,
+                dropped_non_rubric,
+            )
         
         # Breakdown score
         breakdown = response.get("breakdown", {})
