@@ -30,7 +30,7 @@ class GeminiProvider:
     Supports both legacy and modern SDKs with automatic JSON repair and safety bypass.
     """
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model_name: str = "gemini-3-flash-preview"):
         self._api_key = api_key
         self._model_name = model_name
         self._client = None
@@ -174,17 +174,27 @@ class GeminiProvider:
         except Exception as e:
             logger.warning("JSON parse failed, attempting surgical repair for error: %s", e)
             
-            # Reparing truncation (missing closing brackets)
+            # 1. Truncation repair for strings
+            if content.count('"') % 2 != 0:
+                # If we're stuck in a string, close it.
+                # But check if the last char is a backslash (escaping)
+                if content.endswith('\\'):
+                    content = content[:-1]
+                content += '"'
+            
+            # 2. Remove trailing commas which are common in truncated arrays/objects
+            content = content.strip()
+            if content.endswith(','):
+                content = content[:-1]
+            
+            # 3. Repairing truncation (missing closing brackets) - counting nestedly
             open_braces = content.count("{")
             close_braces = content.count("}")
             open_brackets = content.count("[")
             close_brackets = content.count("]")
             
-            # Unclosed string fix
-            if content.count('"') % 2 != 0:
-                content += '"'
-            
-            # Close arrays and objects in reverse order
+            # Close arrays and objects in reverse order of discovery? 
+            # Simple approach: append needed closers
             if open_brackets > close_brackets:
                 content += "]" * (open_brackets - close_brackets)
             if open_braces > close_braces:
@@ -195,13 +205,32 @@ class GeminiProvider:
                 lines = content.splitlines()
                 content = " ".join([line.strip() for line in lines if line.strip()])
                 
-                # Polish: fix trailing commas and single-quoted property names
+                # Polish: fix trailing commas inside arrays/objects
                 content = re.sub(r',\s*([\]}])', r'\1', content)
-                content = re.sub(r"([{,]\s*)'([^']+)'(\s*:)", r'\1"\2"\3', content)
+                # Fix double quotes if we added one unnecessarily
+                content = content.replace('""', '"')
                 
                 return json.loads(content, strict=False)
             except Exception as e2:
-                logger.error("JSON repair failed: %s. Lead chars: %s", e2, content[:100])
+                # If still failing, try regex-based extraction for common keys as last resort
+                logger.error("JSON repair failed: %s. Attempting Regex extraction...", e2)
+                
+                # HEURISTIC EXTRACTION for "full authority" mode
+                score_match = re.search(r'"normalized_score_10":\s*(\d+\.?\d*)', content)
+                status_match = re.search(r'"status":\s*"([^"]+)"', content)
+                
+                if score_match:
+                    score = float(score_match.group(1))
+                    status = status_match.group(1) if status_match else ("AC" if score >= 5.0 else "WA")
+                    return {
+                        "normalized_score_10": score,
+                        "status": status,
+                        "technical_review": content, # Use raw as review
+                        "is_recovered_from_error": True,
+                        "criteria_scores": [],
+                        "actionable_suggestions": ["Cảnh báo: Phản hồi AI bị cắt ngang, hệ thống đã khôi phục điểm số từ bản thảo."]
+                    }
+                
                 return {"error": "Invalid JSON response (Truncated)", "raw": response.content}
 
     async def health_check(self) -> bool:

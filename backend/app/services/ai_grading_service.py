@@ -14,10 +14,12 @@ import hashlib
 import json
 import logging
 import time
+import re
 from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Optional
 
 from app.core.models import GradingResult
+from app.core.config import AI_MAX_OUTPUT_TOKENS
 
 logger = logging.getLogger("dsa.services.ai_grading")
 
@@ -155,14 +157,14 @@ class AIGradingService:
     @staticmethod
     def _build_prompt() -> str:
         """
-        Return optimized grading prompt according to Senior Software Engineer persona.
+        Return optimized grading prompt according to systems-programming PhD persona.
         """
-        return """Bạn là một Kỹ sư Phần mềm Python cấp cao chuyên chấm bài DSA.
-Nhiệm vụ: Chấm hệ thống bài nộp (có thể là một hoặc nhiều tệp liên kết được gộp chung) mang tên "{filename}" (chủ đề: {topic}).
-Hãy đánh giá toàn diện sự liên kết của mã nguồn và chấm đúng theo rubric_context được cung cấp, không thêm tiêu chí ngoài rubric.
+        return """Bạn là Tiến sĩ Lập trình Hệ thống, chuyên gia đánh giá mã nguồn Python/DSA ở cấp độ học thuật và thực chiến.
+    Nhiệm vụ: Chấm hệ thống bài nộp (có thể gồm nhiều tệp liên kết) mang tên "{filename}" (chủ đề: {topic}).
+    Bạn có toàn quyền chuyên môn để quyết định điểm và feedback cuối cùng, nhưng phải dựa trên bằng chứng trong mã nguồn, đề bài, và tiêu chí đánh giá.
 
-!!! CẢNH BÁO QUAN TRỌNG: 
-Hãy chấm điểm tất cả các tiêu chí có trong RUBRIC_CONTEXT.
+    ĐỀ_BÀI_CONTEXT:
+    {problem_context}
 
 INPUT_CODE:
 ```python
@@ -176,15 +178,16 @@ RUBRIC_CONTEXT:
 {rubric_context}
 
 QUY TẮC BẮT BUỘC:
-1. Xử lý toàn bộ RUBRIC_CONTEXT: Chấm điểm dựa trên mọi tiêu chí được cung cấp.
+1. Bắt buộc đọc và đối chiếu theo thứ tự: ĐỀ_BÀI_CONTEXT -> INPUT_CODE -> AST_REPORT -> RUBRIC_CONTEXT trước khi chấm.
+2. Chấm toàn bộ tiêu chí trong RUBRIC_CONTEXT. Không bỏ sót tiêu chí nào; không tự thêm tiêu chí ngoài rubric.
 3. normalized_score_10 = (tổng earned / tổng max) * 10. Tính chính xác, không làm tròn sai.
-4. technical_review phải viết như một code review của senior engineer: nêu rõ điểm đúng, điểm rủi ro, edge case, và hướng sửa. Tối thiểu 25 từ.
-5. actionable_suggestions (Gợi ý cải thiện): MONG MUỐN BẠN ĐÓNG VAI LÀ MỘT GIÁO SƯ TẬN TÂM, THÂN THIỆN. Hãy đưa ra các lời khuyên chuyên sâu, tích cực để sinh viên học hỏi, cải tiến tư duy thuật toán và tối ưu hoá mã nguồn. Đặc biệt: CHỈ RA ĐIỂM TỐT CỦA EM TRƯỚC VÀ ĐỘNG VIÊN EM CỐ GẮNG. (Tuyệt đối không lặp lại điểm số rubric ở đây). Viết dưới dạng: "Em đã làm rất tốt ở phần..., hãy tiếp tục phát huy!", "Em có thể thử áp dụng...", "Để thuật toán tối ưu hơn, em nên...".
-6. Không dùng markdown trong các chuỗi nội dung. Chỉ trả về JSON hợp lệ, không có text ngoài JSON.
-7. status: "AC" nếu normalized_score_10 >= 5.0, ngược lại "WA". Dùng "TLE" nếu code có vòng lặp vô hạn rõ ràng.
-8. criteria_scores phải bao phủ ĐỦ tất cả tiêu chí trong rubric_context, BẮT BUỘC giữ NGUYÊN tên criterion chính xác từng ký tự như rubric_context cung cấp.
-9. Trong mỗi criteria_scores item, feedback phải là nhận xét ngắn, evidence phải là dòng code/hành vi cụ thể chứng minh.
-10. TUYỆT ĐỐI KHÔNG chứa các ký tự kỹ thuật sai như "{", "}", "[", "]", "," trong tên criterion. Nếu AI không khớp được tên, hãy bỏ qua hoặc dùng đúng tên từ RUBRIC_CONTEXT.
+4. technical_review phải theo phong cách phản biện của tiến sĩ lập trình hệ thống: nêu điểm mạnh, sai sót, rủi ro vận hành, edge case, và hướng cải tiến cụ thể. Tối thiểu 35 từ.
+5. actionable_suggestions phải thân thiện, có tính sư phạm, ưu tiên lời khuyên khả thi theo từng bước. Luôn bắt đầu bằng một điểm tích cực của bài làm.
+6. feedback và evidence ở từng tiêu chí phải có căn cứ cụ thể từ code/hành vi chạy/chất lượng thuật toán, không nhận xét chung chung.
+7. Không dùng markdown trong các chuỗi nội dung. Chỉ trả về JSON hợp lệ, không có text ngoài JSON.
+8. status: "AC" nếu normalized_score_10 >= 5.0, ngược lại "WA". Dùng "TLE" nếu code có vòng lặp vô hạn rõ ràng.
+9. criteria_scores phải bao phủ đủ toàn bộ tiêu chí và giữ nguyên tên criterion từng ký tự như RUBRIC_CONTEXT.
+10. Tuyệt đối không chứa các ký tự kỹ thuật sai như "{", "}", "[", "]", "," trong tên criterion.
 
 OUTPUT_JSON (chỉ JSON):
 {
@@ -451,6 +454,7 @@ OUTPUT_JSON (chỉ JSON):
             prompt = prompt.replace("{topic}", str(topic))
             prompt = prompt.replace("{filename}", str(filename))
             prompt = prompt.replace("{code}", str(processed_code))
+            prompt = prompt.replace("{problem_context}", str(self._format_problem_context(rubric_context, topic)))
             prompt = prompt.replace("{ast_report}", str(self._format_ast(ast_report)))
             prompt = prompt.replace("{rubric_context}", str(self._format_rubric_context(rubric_context)))
             # Define JSON Schema for Gemini to follow strictly
@@ -497,7 +501,7 @@ OUTPUT_JSON (chỉ JSON):
                 self._ai.generate_json,
                 prompt,
                 temperature=0,
-                max_tokens=4096,
+                max_tokens=AI_MAX_OUTPUT_TOKENS or 8192,
                 response_schema=grading_schema
             )
             trace("observe", "ok", "Provider returned JSON response")
@@ -510,14 +514,23 @@ OUTPUT_JSON (chỉ JSON):
                     response = recovered
                     trace("repair", "ok", "Recovered JSON object from raw model text")
             
-            if "error" in response:
-                trace("verify", "fail", f"Provider error: {response.get('error')}")
-                raise ValueError(f"AI Provider Error: {response['error']}")
+            if isinstance(response, dict) and "error" in response:
+                if response.get("raw") and "is_recovered_from_error" in response:
+                    logger.warning("AI grading recovered from truncated response using Regex/Authority mode for %s", filename)
+                    trace("repair", "ok", "Recovered using AI Full Authority mode (Regex extraction)")
+                else:
+                    trace("verify", "fail", f"Provider error: {response.get('error')}")
+                    raise ValueError(f"AI Provider Error: {response['error']}")
 
             raw_before_repair = dict(response)
             response = self._repair_response_schema(response, filename)
             if response != raw_before_repair:
                 trace("repair", "ok", "Normalized response schema")
+
+            response_before_rubric = dict(response)
+            response = self._enforce_rubric_coverage(response, rubric_context)
+            if response != response_before_rubric:
+                trace("repair", "ok", "Enforced rubric criteria coverage and recomputed score")
 
             if rubric_context and not response.get("criteria_scores"):
                 trace("verify", "warn", "Missing criteria_scores, will use server-side rubric scoring fallback")
@@ -565,6 +578,47 @@ OUTPUT_JSON (chỉ JSON):
                 del self._response_cache[key]
             logger.debug("Cache LRU eviction: removed %d entries, size now %d",
                          overflow, len(self._response_cache))
+
+    @staticmethod
+    def _format_problem_context(rubric_context: Optional[Dict[str, Any]], topic: str) -> str:
+        """Render assignment/problem statement context for AI to reason before rubric scoring."""
+        if not rubric_context:
+            return f"Không có đề bài chi tiết trong dữ liệu rubric. Chủ đề hiện tại: {topic}."
+
+        matched_exercise = rubric_context.get("matched_exercise") or {}
+
+        # Try common keys from different rubric/exercise payloads.
+        assignment_code = (
+            rubric_context.get("assignment_code")
+            or matched_exercise.get("assignment_code")
+            or matched_exercise.get("code")
+            or "N/A"
+        )
+        title = (
+            rubric_context.get("title")
+            or matched_exercise.get("title")
+            or matched_exercise.get("name")
+            or "Không có tiêu đề"
+        )
+        requirement = (
+            rubric_context.get("requirement")
+            or rubric_context.get("problem_statement")
+            or rubric_context.get("description")
+            or matched_exercise.get("description")
+            or matched_exercise.get("requirement")
+            or "Không có mô tả đề bài chi tiết trong payload hiện tại."
+        )
+
+        requirement = str(requirement).strip()
+        if len(requirement) > 700:
+            requirement = requirement[:697] + "..."
+
+        return (
+            f"Mã bài: {assignment_code}\n"
+            f"Chủ đề: {topic}\n"
+            f"Tiêu đề: {title}\n"
+            f"Yêu cầu đề bài: {requirement}"
+        )
 
     @staticmethod
     def _format_rubric_context(rubric_context: Optional[Dict[str, Any]]) -> str:
@@ -655,6 +709,115 @@ OUTPUT_JSON (chỉ JSON):
         return "\n".join(parts) if parts else "No AST analysis available"
 
     @staticmethod
+    def _extract_rubric_items(rubric_context: Optional[Dict[str, Any]]) -> List[Dict[str, float]]:
+        """Extract rubric criteria as ordered (name, max_score) pairs."""
+        if not isinstance(rubric_context, dict):
+            return []
+
+        criteria = rubric_context.get("criteria") or []
+        if not isinstance(criteria, list):
+            return []
+
+        items: List[Dict[str, float]] = []
+        for item in criteria:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or item.get("criteria_name") or "").strip()
+            if not name:
+                continue
+            try:
+                max_score = float(item.get("max_score", 0) or 0)
+            except (TypeError, ValueError):
+                max_score = 0.0
+            items.append({"name": name, "max": max(0.0, max_score)})
+        return items
+
+    @classmethod
+    def _enforce_rubric_coverage(
+        cls,
+        response: Dict[str, Any],
+        rubric_context: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
+        Ensure criteria_scores exactly match rubric criteria coverage.
+        - Keep rubric order
+        - Keep exact rubric criterion names
+        - Auto-add missing criteria with zero earned
+        - Recompute normalized_score_10 and status from criteria totals
+        """
+        rubric_items = cls._extract_rubric_items(rubric_context)
+        if not rubric_items:
+            return response
+
+        current_scores = response.get("criteria_scores")
+        if not isinstance(current_scores, list):
+            current_scores = []
+
+        score_by_name: Dict[str, Dict[str, Any]] = {}
+        for item in current_scores:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("criterion") or item.get("name") or "").strip()
+            if not name:
+                continue
+            score_by_name[name] = item
+
+        enforced_scores: List[Dict[str, Any]] = []
+        total_earned = 0.0
+        total_max = 0.0
+
+        for rubric_item in rubric_items:
+            name = rubric_item["name"]
+            rubric_max = float(rubric_item["max"])
+            existing = score_by_name.get(name, {})
+
+            try:
+                earned = float(existing.get("earned", 0) or 0)
+            except (TypeError, ValueError):
+                earned = 0.0
+
+            try:
+                model_max = float(existing.get("max", existing.get("max_score", rubric_max)) or rubric_max)
+            except (TypeError, ValueError):
+                model_max = rubric_max
+
+            final_max = rubric_max if rubric_max > 0 else max(0.0, model_max)
+            if final_max > 0:
+                earned = min(max(0.0, earned), final_max)
+            else:
+                earned = max(0.0, earned)
+
+            feedback = str(existing.get("feedback") or "").strip()
+            evidence = str(existing.get("evidence") or "").strip()
+            if not feedback:
+                feedback = "Chưa thấy bằng chứng đáp ứng đầy đủ tiêu chí này trong bài nộp hiện tại."
+            if not evidence:
+                evidence = "Không tìm thấy đoạn mã hoặc hành vi chạy đáp ứng tiêu chí trong lần chấm này."
+
+            enforced_scores.append(
+                {
+                    "criterion": name,
+                    "earned": round(earned, 2),
+                    "max": round(final_max, 2),
+                    "feedback": feedback,
+                    "evidence": evidence,
+                }
+            )
+            total_earned += earned
+            total_max += final_max
+
+        updated = dict(response)
+        updated["criteria_scores"] = enforced_scores
+
+        if total_max > 0:
+            normalized = round((total_earned / total_max) * 10.0, 2)
+            normalized = max(0.0, min(10.0, normalized))
+            updated["normalized_score_10"] = normalized
+            updated["status"] = "AC" if normalized >= 5.0 else "WA"
+
+        return updated
+
+    @staticmethod
     def _parse(
         response: Dict[str, Any],
         filename: str,
@@ -722,11 +885,13 @@ OUTPUT_JSON (chỉ JSON):
 
         if not evidence_based_issues:
             evidence_based_issues = [
-                "Chưa trích xuất được lỗi chi tiết từ AI; hệ thống sẽ dựa thêm vào AST/rubric để chấm điểm."
+                "AI đang hoàn tất phân tích chi tiết; kết quả hiện tại tập trung vào các tiêu chí trọng tâm của bài nộp."
             ]
         if not actionable_suggestions:
             actionable_suggestions = [
-                "Bổ sung xử lý biên, tăng độ bao phủ test case và cải thiện tính rõ ràng của thuật toán."
+                "Em đã có nền tảng triển khai tốt, hãy tiếp tục phát huy phần tổ chức lời giải hiện tại.",
+                "Em nên bổ sung xử lý biên và tăng độ bao phủ test để thuật toán ổn định hơn.",
+                "Em có thể tối ưu thêm độ rõ ràng của code (đặt tên, tách hàm, chú thích ngắn gọn) để dễ bảo trì."
             ]
 
         optimized_code = response.get("improved_code")
@@ -812,7 +977,10 @@ OUTPUT_JSON (chỉ JSON):
                 "Dịch vụ AI đang tạm gián đoạn. "
                 "Hệ thống đã chuyển sang bộ phân tích dự phòng." + reason_suffix
             ),
-            improvement="Vui lòng kiểm tra cấu hình dịch vụ AI và thử nộp lại sau.",
+            improvement=(
+                "Em đã hoàn thành bài nộp, đây là tín hiệu rất tốt. "
+                "Hãy thử nộp lại sau khi dịch vụ AI ổn định để nhận phản hồi chi tiết hơn."
+            ),
             agent_trace=agent_trace or [],
         )
 

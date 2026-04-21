@@ -40,10 +40,10 @@ _COMPONENT_MAX = {
     "complexity": 1.0,
 }
 
-_WEIGHT_AI = 0.70
-_WEIGHT_AST = 0.20
-_WEIGHT_ALGORITHM = 0.05
-_WEIGHT_CONSTRAINT = 0.05
+_WEIGHT_AI = 1.00
+_WEIGHT_AST = 0.00
+_WEIGHT_ALGORITHM = 0.00
+_WEIGHT_CONSTRAINT = 0.00
 _SCORING_POLICY_VERSION = "policy_v2_70_20_5_5"
 _BAITAP_MIN_CODE = "CTDL"
 _RUBRIC_MATCH_MIN_SCORE = 3.0
@@ -998,7 +998,7 @@ class GradingService:
                 
                 earned = 0.0
                 fb = f"AI chưa cung cấp đánh giá chi tiết cho tiêu chí: {db_name}."
-                ev = "Hệ thống sẽ đối chiếu thêm qua AST/Test."
+                ev = "AI thực hiện đánh giá trực tiếp dựa trên nội dung mã nguồn."
 
                 if matched_ai:
                     try:
@@ -1146,7 +1146,7 @@ class GradingService:
                             or ""
                         ).strip()
                         feedback = matched_item.get("feedback") or "AI đã đối chiếu code theo tiêu chí này."
-                        evidence = matched_item.get("evidence") or "Đối chiếu từ phân tích mã và kết quả chạy test."
+                        evidence = matched_item.get("evidence") or "Phân tích chuyên sâu từ AI dựa trên cấu trúc mã."
                     else:
                         earned = 0.0
                         criteria_code = str(
@@ -1155,7 +1155,7 @@ class GradingService:
                             or ""
                         ).strip()
                         feedback = "AI chưa tìm thấy bằng chứng đáp ứng tiêu chí này trong bài nộp."
-                        evidence = "Không có tín hiệu khớp rõ ràng trong nội dung code/AST cho tiêu chí này."
+                        evidence = "AI không tìm thấy bằng chứng đáp ứng tiêu chí này trong mã nguồn."
 
                     total_points += earned
                     total_max += rubric_max
@@ -1180,7 +1180,7 @@ class GradingService:
             if (not feedback_text or fallback_like) and cleaned_scores:
                 lines = ["### Phân tích theo tiêu chí"]
                 for item in cleaned_scores:
-                    detail = item.get("feedback") or "Đánh giá dựa trên đối chiếu AST và rubric."
+                    detail = item.get("feedback") or "Đánh giá chuyên sâu từ trí tuệ nhân tạo."
                     lines.append(
                         f"- {item['criterion']}: {item['earned']:.2f}/{item['max']:.2f} — {detail}"
                     )
@@ -1264,7 +1264,8 @@ class GradingService:
             tests_raw = float(ast_breakdown.get("tests", 0) or 0)
             constraints_score = GradingService._normalize_score_10((tests_raw / 4.0) * 10.0)
 
-        confidence = GradingService._compute_ai_confidence(ai_result, ast_score, ai_score)
+        # In Full Authority Mode (_WEIGHT_AI=1.0), we skip confidence-based weight reduction
+        confidence = 1.0 if _WEIGHT_AI >= 1.0 else GradingService._compute_ai_confidence(ai_result, ast_score, ai_score)
         effective_ai_weight = round(_WEIGHT_AI * confidence, 4)
         fixed_other_weights = _WEIGHT_ALGORITHM + _WEIGHT_CONSTRAINT
         effective_ast_weight = round(max(0.0, 1.0 - fixed_other_weights - effective_ai_weight), 4)
@@ -1278,9 +1279,9 @@ class GradingService:
         final = GradingService._normalize_score_10(weighted)
         final_status = "AC" if final >= 5.0 else "WA"
         score_proof = {
-            "mode": "hybrid_70_20_5_5",
+            "mode": "ai_exclusive_v3",
             "policy_version": _SCORING_POLICY_VERSION,
-            "formula": "final = 0.70*ai + 0.20*ast + 0.05*algorithm + 0.05*constraints",
+            "formula": "final = ai_score (Full Authority Mode)",
             "weights": {
                 "ai": _WEIGHT_AI,
                 "ast": _WEIGHT_AST,

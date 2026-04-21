@@ -197,7 +197,7 @@ def build_config() -> DSAConfig:
 
     ai = AISettings(
         provider="gemini",
-        model_name=_as_str("AI_MODEL_NAME", "gemini-2.0-flash"),
+        model_name=_as_str("AI_MODEL_NAME", "gemini-3-flash-preview"),
         model_temperature=_as_float("AI_MODEL_TEMPERATURE", 0.1),
         max_output_tokens=_as_int("AI_MAX_OUTPUT_TOKENS", 8192),
         max_concurrent_calls=_as_int("MAX_CONCURRENT_AI_CALLS", 5),
