@@ -76,7 +76,7 @@ class LegacyRepository(BaseRepository):
             return []
         try:
             with self.get_session() as session:
-                result = session.execute(text("SELECT DISTINCT MaBaiTap FROM BAITAP WHERE MaBaiTap LIKE 'CTDL%' AND (IsDeleted = 0 OR IsDeleted IS NULL)")).fetchall()
+                result = session.execute(text("SELECT DISTINCT MaBaiTap FROM BAITAP WHERE MaBaiTap LIKE 'CTDL%' AND (IsDeleted = 0 OR IsDeleted IS NULL) ORDER BY MaBaiTap")).fetchall()
                 return [str(row[0]) for row in result]
         except Exception as e:
             self.logger.error("Failed to fetch assignment codes: %s", e)
@@ -88,8 +88,14 @@ class LegacyRepository(BaseRepository):
             return []
         try:
             with self.get_session() as session:
-                query = "SELECT MaBaiTap, TenBaiTap, TieuChiChamDiem, MoTa FROM BAITAP WHERE MaBaiTap LIKE 'CTDL%' AND MaBaiTap >= :min_code AND (IsDeleted = 0 OR IsDeleted IS NULL)"
-                rows = session.execute(text(query), {"min_code": min_code}).fetchall()
+                # If we're looking for everything, or a specific range
+                query = "SELECT MaBaiTap, TenBaiTap, TieuChiChamDiem, MoTa FROM BAITAP WHERE MaBaiTap LIKE 'CTDL%' AND (IsDeleted = 0 OR IsDeleted IS NULL)"
+                params = {}
+                if min_code and min_code != "ALL":
+                    query += " AND MaBaiTap >= :min_code"
+                    params["min_code"] = min_code
+                
+                rows = session.execute(text(query), params).fetchall()
                 
                 exercises = []
                 for r in rows:
