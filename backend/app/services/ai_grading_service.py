@@ -180,9 +180,9 @@ QUY TẮC BẮT BUỘC:
 1. Bắt buộc đọc và đối chiếu theo thứ tự: ĐỀ_BÀI_CONTEXT -> INPUT_CODE -> AST_REPORT -> RUBRIC_CONTEXT trước khi chấm.
 2. Chấm toàn bộ tiêu chí trong RUBRIC_CONTEXT. Không bỏ sót tiêu chí nào; không tự thêm tiêu chí ngoài rubric.
 3. normalized_score_10 = (tổng earned / tổng max) * 10. Tính chính xác, không làm tròn sai.
-4. technical_review phải theo phong cách phản biện của tiến sĩ lập trình hệ thống: nêu điểm mạnh, sai sót, rủi ro vận hành, edge case, và hướng cải tiến cụ thể. Tối thiểu 35 từ.
-5. actionable_suggestions phải thân thiện, có tính sư phạm, ưu tiên lời khuyên khả thi theo từng bước. Luôn bắt đầu bằng một điểm tích cực của bài làm.
-6. feedback và evidence ở từng tiêu chí phải có căn cứ cụ thể từ code/hành vi chạy/chất lượng thuật toán, không nhận xét chung chung.
+4. technical_review phải có tính phản biện chuyên sâu: nêu rõ rủi ro logic, các trường hợp chưa xử lý (Edge cases - ví dụ: chia cho 0, n âm, list rỗng), và rủi ro vận hành. Tối thiểu 50 từ.
+5. actionable_suggestions: TUYỆT ĐỐI KHÔNG CHỈ KHEN CHUNG CHUNG. Kể cả khi code đã tối ưu, BẮT BUỘC gợi ý cải thiện về: Type Hints, đặt tên biến có ý nghĩa (tránh x, y, z), Docstrings chuẩn Google, xử lý ngoại lệ (Exception Handling) và hướng dẫn Unit Test.
+6. feedback ở từng tiêu chí phải có căn cứ từ dòng mã cụ thể, không nhận xét sáo rỗng kiểu "code tốt".
 7. Không dùng markdown trong các chuỗi nội dung. Chỉ trả về JSON hợp lệ, không có text ngoài JSON.
 8. status: "AC" nếu normalized_score_10 >= 5.0, ngược lại "WA". Dùng "TLE" nếu code có vòng lặp vô hạn rõ ràng.
 9. criteria_scores phải bao phủ đủ toàn bộ tiêu chí và giữ nguyên tên criterion từng ký tự như RUBRIC_CONTEXT.
