@@ -9,17 +9,23 @@ from dotenv import load_dotenv
 
 
 def _load_environment_files() -> None:
-    """Load a single shared environment file (.env) from project root."""
+    """Load environment files with backend-local overrides taking precedence."""
     current_file = Path(__file__).resolve()
     project_root = current_file.parents[3]
     root_env = project_root / ".env"
+    backend_env = project_root / "backend" / ".env"
 
+    # Base shared configuration from project root (if present)
     if root_env.exists():
-        load_dotenv(dotenv_path=root_env, override=True)
+        load_dotenv(dotenv_path=root_env, override=False)
+
+    # Backend-specific secrets/config should win over the shared file.
+    if backend_env.exists():
+        load_dotenv(dotenv_path=backend_env, override=True)
         return
 
-    # Backward-safe fallback when the shared .env is not present.
-    load_dotenv(override=True)
+    # Backward-safe fallback when explicit env files are not present.
+    load_dotenv(override=False)
 
 
 _load_environment_files()

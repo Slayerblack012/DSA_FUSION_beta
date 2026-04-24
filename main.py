@@ -330,7 +330,7 @@ def main():
     try:
         _animated_loading("Loading configuration", 0.05)
         _animated_loading("Initializing database", 0.05)
-        _animated_loading("Preparing grading engine", 0.05)
+        _animated_loading("Preparing AI-only grading engine", 0.05)
     except (KeyboardInterrupt, SystemExit):
         print(f"\n  Startup cancelled.\n")
         sys.exit(1)
@@ -365,7 +365,14 @@ def main():
     # Start uvicorn
     try:
         import uvicorn
-        uvicorn.run("app.main:app", host=host, port=port, reload=True, reload_dirs=[backend_dir])
+        reload_enabled = os.getenv("AUTO_RELOAD", "false").lower() == "true" and os.name != "nt"
+        uvicorn.run(
+            "app.main:app",
+            host=host,
+            port=port,
+            reload=reload_enabled,
+            reload_dirs=[backend_dir] if reload_enabled else None,
+        )
     except KeyboardInterrupt:
         pass
     finally:

@@ -172,6 +172,7 @@ else:
 # API routers
 app.include_router(router, prefix="/api")
 app.include_router(submissions_router)
+app.include_router(submissions_router, prefix="/api")
 # app.include_router(auth_router)
 
 

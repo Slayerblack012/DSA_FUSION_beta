@@ -289,7 +289,7 @@ class Container:
                 healthy=False,
                 message="No AI provider configured (set GEMINI_API_KEY)",
             )
-            logger.info("AI provider: Not configured (no GEMINI_API_KEY - fallback mode)")
+            logger.info("AI provider: Not configured (AI-only grading unavailable until GEMINI_API_KEY is set)")
         except Exception as exc:
             logger.error("AI provider initialization failed: %s", exc)
             self._health_status["ai_provider"] = ComponentHealth(
@@ -302,7 +302,7 @@ class Container:
 
     def _init_services(self) -> None:
         """Set up business-logic services."""
-        # 1. AST Grading Service - Required
+        # 1. AST Grading Service - Optional support service (not used for AI-only scoring)
         try:
             from app.services.ast_grader import DSALightningGrader
 
@@ -323,7 +323,7 @@ class Container:
             )
             raise RuntimeError(f"Critical: AST grading service failed: {exc}")
 
-        # 2. AI Grading Service - Optional (uses fallback if AI unavailable)
+        # 2. AI Grading Service - Required for AI-only grading
         try:
             from app.services.ai_grading_service import AIGradingService
 
@@ -335,10 +335,10 @@ class Container:
             self._health_status["ai_grading"] = ComponentHealth(
                 name="ai_grading",
                 healthy=True,
-                message=f"AI grading service initialized ({'AI enabled' if ai_available else 'Fallback mode'})",
+                message=f"AI grading service initialized ({'AI enabled' if ai_available else 'Unavailable until AI provider is configured'})",
             )
             logger.info("AI grading service initialized: %s", 
-                       "AI enabled" if ai_available else "Fallback mode")
+                       "AI enabled" if ai_available else "Unavailable")
         except Exception as exc:
             logger.error("AI grading service initialization failed: %s", exc)
             self._health_status["ai_grading"] = ComponentHealth(
@@ -450,7 +450,7 @@ class Container:
         )
 
         # Check if any critical component is unhealthy
-        critical_components = ["repository", "ast_grading", "plagiarism", "grading"]
+        critical_components = ["repository", "ai_provider", "ai_grading", "plagiarism", "grading"]
         for name in critical_components:
             if name in health.components and not health.components[name].healthy:
                 health.healthy = False

@@ -177,7 +177,7 @@ RUBRIC_CONTEXT:
 {rubric_context}
 
 QUY TẮC BẮT BUỘC:
-1. Bắt buộc đọc và đối chiếu theo thứ tự: ĐỀ_BÀI_CONTEXT -> INPUT_CODE -> AST_REPORT -> RUBRIC_CONTEXT trước khi chấm.
+1. Bắt buộc đọc và đối chiếu theo thứ tự: ĐỀ_BÀI_CONTEXT -> INPUT_CODE -> AST_REPORT (nếu có) -> RUBRIC_CONTEXT trước khi chấm.
 2. Chấm toàn bộ tiêu chí trong RUBRIC_CONTEXT. Không bỏ sót tiêu chí nào; không tự thêm tiêu chí ngoài rubric.
 3. normalized_score_10 = (tổng earned / tổng max) * 10. Tính chính xác, không làm tròn sai.
 4. technical_review phải có tính phản biện chuyên sâu: nêu rõ rủi ro logic, các trường hợp chưa xử lý (Edge cases - ví dụ: chia cho 0, n âm, list rỗng), và rủi ro vận hành. Tối thiểu 50 từ.
@@ -398,8 +398,9 @@ OUTPUT_JSON (chỉ JSON):
         code: str,
         filename: str,
         topic: str,
-        ast_report: Dict[str, Any],
+        ast_report: Optional[Dict[str, Any]] = None,
         rubric_context: Optional[Dict[str, Any]] = None,
+        strict_mode: bool = False,
     ) -> GradingResult:
         """Grade code using the AI provider with retry logic."""
         logger.info("AI grading: %s (topic: %s)", filename, topic)
@@ -412,8 +413,10 @@ OUTPUT_JSON (chỉ JSON):
         trace("observe", "ok", f"Start grading {filename} (topic={topic})")
 
         if self._ai is None:
-            logger.warning("AI provider is not configured. Falling back to AST for %s", filename)
+            logger.warning("AI provider is not configured for %s", filename)
             trace("fallback", "warn", "AI provider not configured")
+            if strict_mode:
+                raise RuntimeError("AI provider is not configured")
             return self._fallback(
                 filename,
                 code,
@@ -454,7 +457,7 @@ OUTPUT_JSON (chỉ JSON):
             prompt = prompt.replace("{filename}", str(filename))
             prompt = prompt.replace("{code}", str(processed_code))
             prompt = prompt.replace("{problem_context}", str(self._format_problem_context(rubric_context, topic)))
-            prompt = prompt.replace("{ast_report}", str(self._format_ast(ast_report)))
+            prompt = prompt.replace("{ast_report}", str(self._format_ast(ast_report or {})))
             prompt = prompt.replace("{rubric_context}", str(self._format_rubric_context(rubric_context)))
             # Define JSON Schema for Gemini to follow strictly
             grading_schema = {
@@ -532,7 +535,7 @@ OUTPUT_JSON (chỉ JSON):
                 trace("repair", "ok", "Enforced rubric criteria coverage and recomputed score")
 
             if rubric_context and not response.get("criteria_scores"):
-                trace("verify", "warn", "Missing criteria_scores, will use server-side rubric scoring fallback")
+                trace("verify", "warn", "Missing criteria_scores, server will align output to rubric criteria")
 
             if not self._is_meaningful_response(response):
                 trace("verify", "fail", "Response failed meaningfulness validation")
@@ -557,6 +560,8 @@ OUTPUT_JSON (chỉ JSON):
         except Exception as exc:
             logger.error("AI grading failed after retries: %s", exc, exc_info=True)
             trace("fallback", "warn", str(exc))
+            if strict_mode:
+                raise RuntimeError(f"AI grading failed: {exc}") from exc
             return self._fallback(filename, code, str(exc), agent_trace=agent_trace)
 
     def _clean_cache(self) -> None:

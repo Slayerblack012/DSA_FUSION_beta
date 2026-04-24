@@ -1,9 +1,9 @@
 """
 DSA AutoGrader - Grading Service (Orchestrator).
 
-Coordinates the full grading pipeline:
-  1. AST analysis  (primary — always works)
-  2. AI grading    (optional — only if API key is set)
+Coordinates the active grading pipeline:
+  1. AI grading    (primary scoring authority)
+  2. Rubric normalization and persistence
   3. Plagiarism check
 """
 
@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from app.core.config import MAX_CONCURRENT_AI_CALLS
 from app.core.models import GradingResult
+from app.services.ai_only_pipeline import AIOnlyGradingPipeline
 from app.services.ai_grading_service import AIGradingService
 from app.services.ast_grader import DSALightningGrader
 from app.services.plagiarism_service import PlagiarismService
@@ -48,7 +49,7 @@ _SCORING_POLICY_VERSION = "policy_v2_70_20_5_5"
 _BAITAP_MIN_CODE = "CTDL"
 _RUBRIC_MATCH_MIN_SCORE = 3.0
 _RUBRIC_MATCH_MIN_MARGIN = 0.75
-# When low-confidence rubric match, fall back to AST-only scoring instead of
+# When low-confidence rubric match, skip rubric auto-attachment instead of
 # forcing a potentially wrong rubric onto the submission.
 _RUBRIC_LOW_CONFIDENCE_FALLBACK = True
 
@@ -79,8 +80,14 @@ class GradingService:
         self._repository = repository
         self._job_store = job_store
         self._event_bus = event_bus
-        self._ai_enabled = True  # Enabled for hybrid grading
+        self._ai_enabled = True  # Active pipeline runs in AI-only grading mode
         self._criteria_matcher = criteria_matcher
+        self._ai_only_pipeline = AIOnlyGradingPipeline(
+            ai_service=self._ai,
+            resolve_rubric_profile=self._resolve_ai_only_rubric_profile,
+            load_rubric_profile=self._load_rubric_profile,
+            apply_rubric=self._apply_rubric_to_result,
+        )
 
     # ------------------------------------------------------------------
     #  Public API
@@ -118,7 +125,7 @@ class GradingService:
         async def _grade_safe(fname: str, fcode: str) -> GradingResult:
             async with semaphore:
                 try:
-                    res = await self.grade_single_file(
+                    res = await self._grade_single_file_ai_only(
                         fcode,
                         fname,
                         topic,
@@ -391,6 +398,29 @@ class GradingService:
 
         ast_only = self._ast_to_result(ast_result, filename, code, rubric_profile=rubric_profile)
         return self._apply_rubric_to_result(ast_only, rubric_profile)
+
+    async def _grade_single_file_ai_only(
+        self,
+        code: str,
+        filename: str,
+        topic: str,
+        assignment_code: Optional[str] = None,
+        baitap_dataset: Optional[List[Dict[str, Any]]] = None,
+    ) -> GradingResult:
+        """AI-only grading path used by the active submission pipeline."""
+        logger.debug("AI-only grading: %s", filename)
+
+        try:
+            return await self._ai_only_pipeline.grade_file(
+                code=code,
+                filename=filename,
+                topic=topic,
+                assignment_code=assignment_code,
+                baitap_dataset=baitap_dataset,
+            )
+        except Exception as exc:
+            logger.error("AI-only grading failed for %s: %s", filename, exc)
+            return self._error_result(filename, str(exc))
 
     async def check_plagiarism(
         self,
@@ -832,6 +862,24 @@ class GradingService:
                 "title": exercise.get("title"),
             },
         }
+
+    def _resolve_ai_only_rubric_profile(
+        self,
+        code: str,
+        filename: str,
+        topic: str,
+        assignment_code: Optional[str],
+        baitap_dataset: Optional[List[Dict[str, Any]]],
+    ) -> Optional[Dict[str, Any]]:
+        """Resolve rubric profile for the active AI-only pipeline."""
+        return self._select_rubric_profile_for_submission(
+            code=code,
+            filename=filename,
+            topic=topic,
+            assignment_code=assignment_code,
+            ast_result={},
+            baitap_dataset=baitap_dataset,
+        )
 
     def _select_rubric_profile_for_submission(
         self,

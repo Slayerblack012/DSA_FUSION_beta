@@ -101,7 +101,7 @@ def _map_to_frontend_format(results: dict, student_id: str) -> dict:
     total_time_ms = 0.0
     
     for r in grading_results:
-        # Build individual file feedback based on dynamic test results or AST analysis
+        # Build individual file feedback from AI grading output and optional testcase data
         feedbacks = []
         test_results = r.get("test_results", [])
         full_feedback = r.get("feedback") or r.get("reasoning") or "Mã nguồn hợp lệ"
@@ -136,7 +136,7 @@ def _map_to_frontend_format(results: dict, student_id: str) -> dict:
                     "points": r.get("total_score", 0),
                 })
         else:
-            # Fallback to static analysis summary if no dynamic tests were executed
+            # AI-only summary when no testcase breakdown is attached
             feedbacks.append({
                 "testcase": "AI Review",
                 "status": r.get("status", "AC"),
@@ -277,7 +277,7 @@ async def submit_multi_file(
 
     # Step 3: Execute Grading Pipeline
     try:
-        # The orchestrator handles AST, Dynamic Tests, AI, Plagiarism, and DB Persistence
+        # The orchestrator handles AI-only grading, plagiarism checks, and DB persistence
         grading_results = await grading_service.grade_submission(
             files=py_files_to_grade,
             topic=batch_topic,
@@ -285,6 +285,18 @@ async def submit_multi_file(
             student_id=student_id,
             assignment_code=final_assignment_code,
         )
+
+        result_rows = grading_results.get("results", []) or []
+        if result_rows and all((row.get("status") == "RE") for row in result_rows):
+            detail = next(
+                (
+                    row.get("feedback")
+                    or row.get("reasoning")
+                    or "Dịch vụ AI chưa sẵn sàng để chấm bài."
+                )
+                for row in result_rows
+            )
+            raise HTTPException(status_code=503, detail=detail)
         
         # Manually run intra-job plagiarism check on original separate files
         if len(original_files) > 1:
@@ -325,9 +337,11 @@ async def submit_multi_file(
 
         return mapped
 
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error(f"Grading orchestration service failure: {exc}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Lỗi hệ thống trong quá trình chấm điểm chuyên sâu.")
+        raise HTTPException(status_code=500, detail="Dịch vụ AI chấm bài đang gặp lỗi. Vui lòng kiểm tra cấu hình Gemini hoặc thử lại sau.")
     
 @router.get("/assignments/codes")
 async def get_assignment_codes():

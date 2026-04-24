@@ -23,18 +23,27 @@ class DatabaseManager:
 
     def _create_engine(self):
         if self.is_sql_server:
-            encoded_conn = quote_plus(self.sql_server_url)
-            engine = create_engine(
-                f"mssql+pyodbc:///?odbc_connect={encoded_conn}",
-                pool_pre_ping=True, pool_size=10, max_overflow=20, echo=False
-            )
-        else:
-            engine = create_engine(
-                f"sqlite:///{DB_FILE}",
-                connect_args={"check_same_thread": False},
-                poolclass=QueuePool, pool_size=10, max_overflow=20, echo=False
-            )
-        
+            try:
+                encoded_conn = quote_plus(self.sql_server_url)
+                engine = create_engine(
+                    f"mssql+pyodbc:///?odbc_connect={encoded_conn}",
+                    pool_pre_ping=True, pool_size=10, max_overflow=20, echo=False
+                )
+                self._run_migrations(engine)
+                return engine
+            except Exception as exc:
+                logger.warning(
+                    "SQL Server unavailable, falling back to SQLite local database: %s",
+                    exc,
+                )
+                self.is_sql_server = False
+
+        engine = create_engine(
+            f"sqlite:///{DB_FILE}",
+            connect_args={"check_same_thread": False},
+            poolclass=QueuePool, pool_size=10, max_overflow=20, echo=False
+        )
+
         # Run auto-migrations
         self._run_migrations(engine)
         return engine
