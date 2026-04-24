@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from app.core.models import GradingResult
 
