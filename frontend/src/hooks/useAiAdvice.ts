@@ -45,6 +45,40 @@ export const normalizeCriterionKey = (value: string) =>
 
 export const toNumber = (value: string) => Number(value.replace(",", "."));
 
+const readString = (value: unknown) =>
+  typeof value === "string"
+    ? value.trim()
+    : value === null || value === undefined
+      ? ""
+      : String(value).trim();
+
+const readNumber = (value: unknown) => {
+  const parsed = typeof value === "string" ? Number(value.replace(",", ".")) : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeCriterionScore = (
+  item: RubricCriterionScore | Record<string, unknown>
+): RubricCriterionScore | null => {
+  const raw = item as Record<string, unknown>;
+  const sourceText = readString(raw.sourceText ?? raw.source_text);
+  const criterion = readString(raw.criterion ?? raw.name ?? sourceText);
+  const earned = readNumber(raw.earned);
+  const total = readNumber(raw.total ?? raw.max ?? raw.max_score);
+
+  if (!criterion || total <= 0) return null;
+
+  return {
+    criterion,
+    criteriaCode: readString(raw.criteriaCode ?? raw.criteria_code) || undefined,
+    earned,
+    total,
+    sourceText: sourceText || undefined,
+    feedback: readString(raw.feedback ?? raw.comment) || undefined,
+    evidence: readString(raw.evidence ?? raw.source_text) || undefined,
+  };
+};
+
 export const isGenericAdviceText = (value: string) => {
   const normalized = value.toLowerCase().replace(/\s+/g, " ").trim();
   if (!normalized) return true;
@@ -115,7 +149,8 @@ const parseSection = (text: string, section: string, nextSections: string[]) => 
 
 export const parseAiAdvice = (
   rawAdvice?: string,
-  scoreProof?: ScoreProof
+  scoreProof?: ScoreProof,
+  directCriteriaScores?: Array<RubricCriterionScore | Record<string, unknown>>
 ): ParsedAiAdvice => {
   const text = rawAdvice ? cleanAdviceText(rawAdvice) : "";
 
@@ -138,45 +173,47 @@ export const parseAiAdvice = (
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => /^-\s*.+:\s*[0-9]+(?:[.,][0-9]+)?\s*\/\s*[0-9]+(?:[.,][0-9]+)?/i.test(line))
-    .map((line) => {
+    .map((line): RubricCriterionScore | null => {
       const match = line.match(
         /^-\s*(.+?):\s*([0-9]+(?:[.,][0-9]+)?)\s*\/\s*([0-9]+(?:[.,][0-9]+)?)/i
       );
       if (!match) return null;
       const [, criterion, earnedRaw, totalRaw] = match;
+      const feedback = line
+        .split("|")
+        .slice(1)
+        .map((part) => part.replace(/^Evidence\s*:/i, "").trim())
+        .filter(Boolean)
+        .join(" ");
       return {
         criterion: criterion.trim(),
         earned: toNumber(earnedRaw),
         total: toNumber(totalRaw),
+        feedback: feedback || undefined,
       };
     })
     .filter(
       (item): item is RubricCriterionScore => item !== null
     );
 
+  const directCriteria = (directCriteriaScores || [])
+    .map((item) => normalizeCriterionScore(item))
+    .filter((item): item is RubricCriterionScore => item !== null);
+
   const proofCriteriaRaw =
     scoreProof?.rubricAdjustment?.criteriaResults ||
     (scoreProof as unknown as { rubric_adjustment?: { criteria_results?: Array<Record<string, unknown>> } })
       ?.rubric_adjustment?.criteria_results ||
     [];
+  const proofCriteria = proofCriteriaRaw
+    .map((item) => normalizeCriterionScore(item as Record<string, unknown>))
+    .filter((item): item is RubricCriterionScore => item !== null);
+
   const criteriaScores =
-    proofCriteriaRaw.length > 0
-      ? proofCriteriaRaw
-          .map((item) => {
-            const criterion = (item?.name || "").toString().trim();
-            const earned = Number(item?.earned ?? 0);
-            const total = Number(item?.max ?? 0);
-            if (!criterion || Number.isNaN(earned) || Number.isNaN(total) || total <= 0)
-              return null;
-            return {
-              criterion,
-              criteriaCode: (item?.criteriaCode || (item as { criteria_code?: string })?.criteria_code || "") as string,
-              earned,
-              total,
-              sourceText: (item?.sourceText || (item as { source_text?: string })?.source_text || "") as string,
-            } as RubricCriterionScore;
-          })
-          .filter((item): item is RubricCriterionScore => item !== null)
+    directCriteria.length > 0
+      ? directCriteria
+      : proofCriteria.length > 0
+        ? proofCriteria
       : (() => {
           const mergedCriteriaMap = new Map<string, RubricCriterionScore>();
           rawCriteriaScores.forEach((item) => {
@@ -237,7 +274,7 @@ export const parseAiAdvice = (
   const improvements = [
     ...toAdviceLines(hint),
     ...toAdviceLines(fallbackText).filter((line) =>
-      /^(có thể|nên|hãy|tránh|thêm|tách|đổi|tối ưu|kiểm tra|xử lý)/i.test(line)
+      /^(em\s+)?(có thể|nên|hãy|cần|ưu tiên|tránh|thêm|tách|đổi|tối ưu|kiểm tra|xử lý|bổ sung|viết|đặt|giảm|sửa)/i.test(line)
     ),
   ]
     .map((line) => line.replace(/^-\s*/, "").trim())

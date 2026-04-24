@@ -156,10 +156,14 @@ def _map_to_frontend_format(results: dict, student_id: str) -> dict:
             "time_ms": time_ms,
             "feedbacks": feedbacks,
             "ai_advice": r.get("feedback") or r.get("reasoning") or r.get("improvement") or "",
+            "improvement": r.get("improvement") or "",
             "optimized_code": r.get("optimized_code"),
             "complexity_curve": r.get("complexity_curve", []),
             "agent_trace": r.get("agent_trace", []),
             "score_proof": r.get("score_proof"),
+            "criteria_scores": r.get("criteria_scores") or [],
+            "breakdown": r.get("breakdown"),
+            "complexity": r.get("complexity"),
         })
 
     # Return structured response matching Frontend's ResultRecord type

@@ -181,7 +181,7 @@ QUY TẮC BẮT BUỘC:
 2. Chấm toàn bộ tiêu chí trong RUBRIC_CONTEXT. Không bỏ sót tiêu chí nào; không tự thêm tiêu chí ngoài rubric.
 3. normalized_score_10 = (tổng earned / tổng max) * 10. Tính chính xác, không làm tròn sai.
 4. technical_review phải có tính phản biện chuyên sâu: nêu rõ rủi ro logic, các trường hợp chưa xử lý (Edge cases - ví dụ: chia cho 0, n âm, list rỗng), và rủi ro vận hành. Tối thiểu 50 từ.
-5. actionable_suggestions: TUYỆT ĐỐI KHÔNG CHỈ KHEN CHUNG CHUNG. Kể cả khi code đã tối ưu, BẮT BUỘC gợi ý cải thiện về: Type Hints, đặt tên biến có ý nghĩa (tránh x, y, z), Docstrings chuẩn Google, xử lý ngoại lệ (Exception Handling) và hướng dẫn Unit Test.
+5. actionable_suggestions: trả 3-5 gợi ý cụ thể theo tình huống mã nguồn. Nếu sai test/WA thì ưu tiên sửa logic, input/output, edge cases; nếu điểm trung bình thì ưu tiên độ phức tạp, tách hàm, xử lý ngoại lệ; nếu điểm cao thì vẫn phải gợi ý Type Hints, đặt tên biến có ý nghĩa, Docstrings chuẩn Google, Unit Test và kiểm thử dữ liệu lớn. TUYỆT ĐỐI KHÔNG chỉ khen chung chung.
 6. feedback ở từng tiêu chí phải có căn cứ từ dòng mã cụ thể, không nhận xét sáo rỗng kiểu "code tốt".
 7. Không dùng markdown trong các chuỗi nội dung. Chỉ trả về JSON hợp lệ, không có text ngoài JSON.
 8. status: "AC" nếu normalized_score_10 >= 5.0, ngược lại "WA". Dùng "TLE" nếu code có vòng lặp vô hạn rõ ràng.
@@ -496,7 +496,7 @@ OUTPUT_JSON (chỉ JSON):
                     "evidence_based_issues": {"type": "ARRAY", "items": {"type": "STRING"}},
                     "actionable_suggestions": {"type": "ARRAY", "items": {"type": "STRING"}}
                 },
-                "required": ["normalized_score_10", "status", "criteria_scores", "technical_review"]
+                "required": ["normalized_score_10", "status", "criteria_scores", "technical_review", "evidence_based_issues", "actionable_suggestions"]
             }
 
             response = await self._execute_with_retry(

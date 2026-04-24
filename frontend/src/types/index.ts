@@ -59,10 +59,12 @@ export interface FileEvaluation {
   score: number;
   feedbacks: Feedback[];
   aiAdvice?: string;
+  improvement?: string;
   optimizedCode?: string;
   timeMs: number;
   agentTrace?: AgentTraceEntry[];
   scoreProof?: ScoreProof;
+  criteriaScores?: RubricCriterionScore[];
 }
 
 export interface RubricCriterionScore {
@@ -71,6 +73,8 @@ export interface RubricCriterionScore {
   earned: number;
   total: number;
   sourceText?: string;
+  feedback?: string;
+  evidence?: string;
 }
 
 export interface RubricCriterionScoreView extends RubricCriterionScore {

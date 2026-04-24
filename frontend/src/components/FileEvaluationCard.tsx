@@ -8,6 +8,9 @@ import {
   ShieldCheck,
   Terminal,
   Copy,
+  Lightbulb,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import type { FileEvaluation, ScoreProof } from "@/types";
@@ -18,6 +21,19 @@ interface FileEvaluationCardProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
 }
+
+type MatchedExerciseInfo = {
+  assignmentCode?: string;
+  assignment_code?: string;
+  title?: string;
+};
+
+type ScoreProofWithSnakeCase = ScoreProof & {
+  rubric_adjustment?: {
+    matched_exercise?: MatchedExerciseInfo;
+    criteria_results?: Array<Record<string, unknown>>;
+  };
+};
 
 export const FileEvaluationCard = ({
   file,
@@ -43,14 +59,17 @@ export const FileEvaluationCard = ({
   })();
 
   const scoreProof = file.scoreProof;
-  const parsedAdvice = parseAiAdvice(adviceText, scoreProof);
+  const parsedAdvice = parseAiAdvice(adviceText, scoreProof, file.criteriaScores);
   const detailFeedbacks = file.feedbacks.filter(
     (fb) => !hasStructuredMarkers(fb.message || "")
   );
   const visibleCriteria = parsedAdvice.criteriaScores;
-  const matchedExercise =
-    scoreProof?.rubricAdjustment?.matchedExercise ||
-    (scoreProof as any)?.rubric_adjustment?.matched_exercise;
+  const snakeScoreProof = scoreProof as ScoreProofWithSnakeCase | undefined;
+  const matchedExercise: MatchedExerciseInfo | undefined =
+    (scoreProof?.rubricAdjustment?.matchedExercise as MatchedExerciseInfo | undefined) ||
+    snakeScoreProof?.rubric_adjustment?.matched_exercise;
+  const matchedAssignmentCode =
+    matchedExercise?.assignmentCode || matchedExercise?.assignment_code;
 
   return (
     <div className="card-elevated overflow-hidden">
@@ -117,13 +136,13 @@ export const FileEvaluationCard = ({
                       {parsedAdvice.criteriaScores.length} tiêu chí
                     </span>
                   </div>
-                  {(matchedExercise as any)?.assignmentCode || (matchedExercise as any)?.assignment_code ? (
+                  {matchedAssignmentCode ? (
                     <p className="text-[12px] text-slate-600">
                       Đang dùng rubric từ DB:{" "}
                       <span className="font-semibold">
-                        {(matchedExercise as any).assignmentCode || (matchedExercise as any).assignment_code}
+                        {matchedAssignmentCode}
                       </span>
-                      {(matchedExercise as any).title ? ` - ${(matchedExercise as any).title}` : ""}
+                      {matchedExercise?.title ? ` - ${matchedExercise.title}` : ""}
                     </p>
                   ) : null}
 
@@ -175,14 +194,14 @@ export const FileEvaluationCard = ({
                   </p>
                 </div>
                 {/* Giữ nguyên hàm renderScoreProof bên dưới */}
-                {renderScoreProof(scoreProof, file.score)}
+                {renderScoreProof(scoreProof)}
               </div>
             )}
 
             {/* Gợi ý cải thiện */}
             <div>
               <p className="section-title mb-4">Gợi ý cải thiện mã nguồn</p>
-              {renderImprovements(parsedAdvice, detailFeedbacks, adviceText)}
+              {renderImprovements(parsedAdvice, detailFeedbacks, adviceText, file)}
             </div>
 
             {/* Bài giải tham khảo */}
@@ -242,7 +261,7 @@ function hasStructuredMarkers(value: string) {
   );
 }
 
-function renderScoreProof(scoreProof: ScoreProof, fileScore: number) {
+function renderScoreProof(scoreProof: ScoreProof) {
   const proofItems = (
     scoreProof.rubricAdjustment?.criteriaResults ||
     (scoreProof as unknown as { rubric_adjustment?: { criteria_results?: Array<Record<string, unknown>> } })
@@ -330,10 +349,16 @@ function renderScoreProof(scoreProof: ScoreProof, fileScore: number) {
 
 function renderImprovements(
   parsedAdvice: ReturnType<typeof parseAiAdvice>,
-  detailFeedbacks: { hint?: string; message?: string }[],
-  adviceText: string
+  detailFeedbacks: FileEvaluation["feedbacks"],
+  adviceText: string,
+  file: FileEvaluation
 ) {
   const improvementItems: string[] = [];
+  const pushAdvice = (value?: string) => {
+    const cleaned = toStudentAdvice(value || "");
+    if (cleaned && isUsefulAdvice(cleaned)) improvementItems.push(cleaned);
+  };
+
   if (adviceText) {
     let inTargetSection = false;
     const lines = adviceText.split("\n");
@@ -345,43 +370,176 @@ function renderImprovements(
       }
       if (inTargetSection) {
         const cleaned = line.replace(/^[-*•]\s*/, "").trim();
-        if (cleaned && !/^[0-9.,]+\s*\/\s*[0-9.,]+đ?$/i.test(cleaned)) improvementItems.push(cleaned);
+        if (cleaned && !/^[0-9.,]+\s*\/\s*[0-9.,]+đ?$/i.test(cleaned)) pushAdvice(cleaned);
       }
     }
   }
-  parsedAdvice.improvements.forEach((imp) => improvementItems.push(imp));
+  file.improvement?.split("\n").forEach((line) => pushAdvice(line));
+  parsedAdvice.improvements.forEach((imp) => pushAdvice(imp));
+  parsedAdvice.issues.forEach((issue) => pushAdvice(`Khắc phục vấn đề AI phát hiện: ${issue}`));
   detailFeedbacks.forEach((fb) => {
-    if (fb.hint && !fb.hint.toLowerCase().includes("điểm bên dưới được chuẩn hóa")) improvementItems.push(fb.hint.trim());
+    const failed = fb.status && fb.status !== "AC";
+    if (failed && fb.hint && !fb.hint.toLowerCase().includes("điểm bên dưới được chuẩn hóa")) {
+      pushAdvice(`${fb.testcase}: ${fb.hint}`);
+    } else if (failed && fb.message) {
+      pushAdvice(`${fb.testcase}: ${fb.message}`);
+    } else if (fb.hint && !fb.hint.toLowerCase().includes("điểm bên dưới được chuẩn hóa")) {
+      pushAdvice(fb.hint);
+    }
   });
 
-  let finalItems = improvementItems
-    .map(item => item.replace(/^Khắc phục:\s*/, "").trim())
-    .filter(item => item.length > 10)
-    .filter((v, i, a) => a.findIndex((t) => t.toLowerCase() === v.toLowerCase()) === i)
-    .slice(0, 4);
-
-  if (finalItems.length === 0) {
-    return (
-      <div className="p-6 rounded-2xl bg-success/5 border border-success/10 text-center">
-         <p className="text-sm text-success font-medium italic">&quot;Giải thuật của em đã rất tối ưu. Hãy tiếp tục duy trì phong cách code sạch và hiệu quả này!&quot;</p>
-      </div>
-    );
-  }
+  const finalItems = uniqueAdviceItems([
+    ...improvementItems,
+    ...buildContextualImprovementItems(file, parsedAdvice, detailFeedbacks),
+  ]).slice(0, 5);
+  const tone = getAdvicePanelTone(file.score);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className={`rounded-lg border p-5 ${tone.panelClass}`}>
+      <div className="mb-4 flex items-start gap-3">
+        <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone.iconClass}`}>
+          <Lightbulb className="h-4 w-4" />
+        </div>
+        <div>
+          <p className={`text-[13px] font-semibold ${tone.titleClass}`}>{tone.title}</p>
+          <p className="mt-0.5 text-[12px] text-slate-500">
+            Dựa trên điểm {file.score.toFixed(1)}/10, rubric, testcase và nhận xét AI.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {finalItems.map((item, idx) => (
-        <div key={idx} className="card-glass border-white/5 p-5 flex gap-4 hover:border-primary/30 transition-all group">
-          <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-all">
-            0{idx + 1}
+        <div key={idx} className="rounded-lg border border-white/70 bg-white/80 p-4 flex gap-3 shadow-sm">
+          <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${tone.itemIconClass}`}>
+            {renderAdviceIcon(item, file.score)}
           </div>
-          <p className="text-[13px] text-text-main/80 leading-relaxed font-medium">
+          <p className="text-[13px] text-slate-700 leading-relaxed font-medium">
             {item}
           </p>
         </div>
       ))}
+      </div>
     </div>
   );
+}
+
+function buildContextualImprovementItems(
+  file: FileEvaluation,
+  parsedAdvice: ReturnType<typeof parseAiAdvice>,
+  detailFeedbacks: FileEvaluation["feedbacks"]
+) {
+  const items: string[] = [];
+
+  const failedFeedbacks = detailFeedbacks
+    .filter((fb) => fb.status && fb.status !== "AC")
+    .slice(0, 2);
+
+  failedFeedbacks.forEach((fb) => {
+    const message = fb.hint || fb.message;
+    if (message) {
+      items.push(`Ưu tiên sửa testcase "${fb.testcase}": ${message}`);
+    }
+  });
+
+  const weakCriteria = parsedAdvice.criteriaScores
+    .filter((criterion) => criterion.total > 0)
+    .map((criterion) => ({
+      ...criterion,
+      scorePercent: getScorePercent(criterion.earned, criterion.total),
+    }))
+    .filter((criterion) => criterion.scorePercent < 80)
+    .sort((a, b) => a.scorePercent - b.scorePercent)
+    .slice(0, 3);
+
+  weakCriteria.forEach((criterion) => {
+    const label = truncateText(collapseWhitespace(criterion.sourceText || criterion.criterion), 90);
+    const reason = truncateText(toStudentAdvice(criterion.feedback || criterion.evidence || ""), 150);
+    if (reason) {
+      items.push(`Ưu tiên tiêu chí "${label}": ${reason}`);
+      return;
+    }
+    items.push(
+      `Ưu tiên cải thiện tiêu chí "${label}" vì hiện mới đạt ${criterion.scorePercent.toFixed(0)}%.`
+    );
+  });
+
+  if (file.score < 5) {
+    items.push("Bài đang dưới ngưỡng đạt; hãy sửa lỗi đúng/sai của thuật toán trước, sau đó chạy lại với input biên như rỗng, 1 phần tử, số âm hoặc dữ liệu rất lớn.");
+    items.push("So sánh output thực tế với output mong đợi theo từng bước để tìm đoạn xử lý sai thay vì chỉ nhìn điểm tổng.");
+  } else if (file.score < 8) {
+    items.push("Bài đã qua ngưỡng đạt; nên bổ sung test biên và làm rõ xử lý ngoại lệ để tăng độ chắc chắn của lời giải.");
+    items.push("Rà soát độ phức tạp Big-O và tránh các vòng lặp lồng nhau không cần thiết nếu đề có giới hạn dữ liệu lớn.");
+  } else {
+    items.push("Điểm đang tốt; hãy thêm type hints, docstring ngắn và unit test cho dữ liệu lớn để giữ chất lượng khi mở rộng.");
+    items.push("Kiểm tra thêm các trường hợp biên hiếm để tránh lỗi hồi quy trong lần nộp sau.");
+  }
+
+  return items.map(toStudentAdvice).filter((item) => item && isUsefulAdvice(item));
+}
+
+function getAdvicePanelTone(score: number) {
+  if (score < 5) {
+    return {
+      title: "Ưu tiên sửa lỗi ảnh hưởng điểm",
+      panelClass: "border-rose-100 bg-rose-50/70",
+      iconClass: "bg-rose-100 text-rose-700",
+      itemIconClass: "bg-rose-50 text-rose-600",
+      titleClass: "text-rose-800",
+    };
+  }
+  if (score < 8) {
+    return {
+      title: "Nên cải thiện để tăng điểm",
+      panelClass: "border-amber-100 bg-amber-50/70",
+      iconClass: "bg-amber-100 text-amber-700",
+      itemIconClass: "bg-amber-50 text-amber-600",
+      titleClass: "text-amber-800",
+    };
+  }
+  return {
+    title: "Tinh chỉnh để bài chắc hơn",
+    panelClass: "border-emerald-100 bg-emerald-50/70",
+    iconClass: "bg-emerald-100 text-emerald-700",
+    itemIconClass: "bg-emerald-50 text-emerald-600",
+    titleClass: "text-emerald-800",
+  };
+}
+
+function renderAdviceIcon(item: string, score: number) {
+  const normalized = item.toLowerCase();
+  if (score < 5 || /lỗi|sai|chưa đạt|testcase/.test(normalized)) {
+    return <AlertCircle className="h-4 w-4" />;
+  }
+  if (score >= 8) {
+    return <CheckCircle2 className="h-4 w-4" />;
+  }
+  return <Lightbulb className="h-4 w-4" />;
+}
+
+function uniqueAdviceItems(items: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  items.forEach((item) => {
+    const cleaned = toStudentAdvice(item.replace(/^Khắc phục:\s*/i, ""));
+    const key = collapseWhitespace(cleaned).toLowerCase();
+    if (!cleaned || !isUsefulAdvice(cleaned) || seen.has(key)) return;
+    seen.add(key);
+    result.push(cleaned);
+  });
+  return result;
+}
+
+function isUsefulAdvice(value: string) {
+  const normalized = collapseWhitespace(value).toLowerCase();
+  if (normalized.length <= 10) return false;
+  if (isHeadingOnlyAdvice(normalized)) return false;
+  return ![
+    "mã nguồn hợp lệ",
+    "không có đánh giá",
+    "không có phân tích",
+    "không có nhận xét",
+    "n/a",
+  ].some((fragment) => normalized === fragment || normalized.includes(fragment));
 }
 
 function formatCriterionLabel(value: string) {
@@ -466,6 +624,11 @@ function collapseWhitespace(value: string) {
   return value.replace(/\r/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function truncateText(value: string, maxLength: number) {
+  const cleaned = collapseWhitespace(value);
+  return cleaned.length > maxLength ? `${cleaned.slice(0, maxLength - 3)}...` : cleaned;
+}
+
 function toStudentAdvice(value: string) {
   const cleaned = stripAdviceHeading(
     collapseWhitespace(value)
@@ -484,7 +647,7 @@ function stripAdviceHeading(value: string) {
   return value
     .replace(/^#{1,6}\s*/g, "")
     .replace(/^[-*]\s*/g, "")
-    .replace(/^\[?(?:analysis|hint|issues_found|phân tích kỹ thuật|điểm theo tiêu chí|bảng điểm chi tiết)\]?[:\s-]*/i, "")
+    .replace(/^\[?(?:analysis|hint|issues_found|phân tích kỹ thuật|điểm theo tiêu chí|bảng điểm chi tiết|gợi ý cải thiện|lỗi và vấn đề cần sửa|nhận xét chuyên môn)\]?[:\s-]*/i, "")
     .trim();
 }
 
