@@ -397,46 +397,15 @@ function renderImprovements(
   adviceText: string,
   file: FileEvaluation
 ) {
-  const improvementItems: string[] = [];
-  const pushAdvice = (value?: string) => {
-    const cleaned = toStudentAdvice(value || "");
-    if (cleaned && isUsefulAdvice(cleaned)) improvementItems.push(cleaned);
-  };
-
-  if (adviceText) {
-    let inTargetSection = false;
-    const lines = adviceText.split("\n");
-    for (const line of lines) {
-      if (/^###\s*(lỗi và vấn đề cần sửa|gợi ý cải thiện|nhận xét chuyên môn)/i.test(line.trim())) {
-        inTargetSection = true; continue;
-      } else if (/^###|^chi tiết chấm điểm/i.test(line.trim())) {
-        inTargetSection = false; continue;
-      }
-      if (inTargetSection) {
-        const cleaned = line.replace(/^[-*•]\s*/, "").trim();
-        if (cleaned && !/^[0-9.,]+\s*\/\s*[0-9.,]+đ?$/i.test(cleaned)) pushAdvice(cleaned);
-      }
-    }
-  }
-  file.improvement?.split("\n").forEach((line) => pushAdvice(line));
-  parsedAdvice.improvements.forEach((imp) => pushAdvice(imp));
-  parsedAdvice.issues.forEach((issue) => pushAdvice(`Khắc phục vấn đề AI phát hiện: ${issue}`));
-  detailFeedbacks.forEach((fb) => {
-    const failed = fb.status && fb.status !== "AC";
-    if (failed && fb.hint && !fb.hint.toLowerCase().includes("điểm bên dưới được chuẩn hóa")) {
-      pushAdvice(`${fb.testcase}: ${fb.hint}`);
-    } else if (failed && fb.message) {
-      pushAdvice(`${fb.testcase}: ${fb.message}`);
-    } else if (fb.hint && !fb.hint.toLowerCase().includes("điểm bên dưới được chuẩn hóa")) {
-      pushAdvice(fb.hint);
-    }
-  });
-
-  const finalItems = uniqueAdviceItems([
-    ...improvementItems,
-    ...buildContextualImprovementItems(file, parsedAdvice, detailFeedbacks),
-  ]).slice(0, 5);
   const tone = getAdvicePanelTone(file.score);
+
+  // Prefer structured improvements from AI; fall back to hint/analysis when empty.
+  const aiSuggestions: string[] = (parsedAdvice.improvements && parsedAdvice.improvements.length > 0)
+    ? parsedAdvice.improvements
+    : (parsedAdvice.hint ? parsedAdvice.hint.split(/\n+/).map(s => s.trim()).filter(Boolean) : []);
+
+  const contextual = buildContextualImprovementItems(file, parsedAdvice, detailFeedbacks);
+  const merged = uniqueAdviceItems([...(aiSuggestions || []), ...contextual]).slice(0, 6);
 
   return (
     <div className={`rounded-lg border p-5 ${tone.panelClass}`}>
@@ -451,18 +420,26 @@ function renderImprovements(
           </p>
         </div>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {finalItems.map((item, idx) => (
-        <div key={idx} className="rounded-lg border border-white/70 bg-white/80 p-4 flex gap-3 shadow-sm">
-          <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${tone.itemIconClass}`}>
-            {renderAdviceIcon(item, file.score)}
+        {merged.map((item, idx) => (
+          <div key={idx} className="rounded-lg border border-white/70 bg-white/80 p-4 flex gap-3 shadow-sm">
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${tone.itemIconClass}`}>
+              {renderAdviceIcon(item, file.score)}
+            </div>
+            <p className="text-[13px] text-slate-700 leading-relaxed font-medium">
+              {item}
+            </p>
           </div>
-          <p className="text-[13px] text-slate-700 leading-relaxed font-medium">
-            {item}
-          </p>
-        </div>
-      ))}
+        ))}
       </div>
+
+      {parsedAdvice.fallbackText && parsedAdvice.fallbackText.length > 0 && (
+        <details className="mt-4 p-3 rounded-md border bg-white/60">
+          <summary className="text-sm text-gray-600 cursor-pointer">Xem đầu ra thô của AI</summary>
+          <pre className="mt-2 text-xs text-gray-700 whitespace-pre-wrap max-h-56 overflow-auto">{parsedAdvice.fallbackText}</pre>
+        </details>
+      )}
     </div>
   );
 }
