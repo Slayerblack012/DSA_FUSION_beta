@@ -33,6 +33,111 @@ interface SubmitFormProps {
   latest: unknown;
 }
 
+type DisplayCriterion = {
+  name: string;
+  maxScore?: number | string;
+};
+
+const isJunkCriterionName = (value: string) => {
+  const name = value.trim();
+  return (
+    !name ||
+    name === "{" ||
+    name === "}" ||
+    name === "[" ||
+    name === "]" ||
+    name === ":" ||
+    name === "," ||
+    name.includes('"tieu_chi"') ||
+    name.includes("tieu_chi:")
+  );
+};
+
+const toDisplayCriterion = (value: unknown): DisplayCriterion | null => {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+
+  const name = String(
+    record.name ??
+      record.criteria_name ??
+      record.criterion ??
+      record.title ??
+      record.label ??
+      ""
+  ).trim();
+
+  if (isJunkCriterionName(name)) return null;
+
+  return {
+    name,
+    maxScore: (record.max_score ?? record.points ?? record.score ?? record.max) as
+      | number
+      | string
+      | undefined,
+  };
+};
+
+const parsePackedCriteriaText = (raw: string): DisplayCriterion[] => {
+  const text = raw.trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text);
+    return normalizeRubricCriteria(parsed);
+  } catch {
+    // Legacy SQL rows can be stored as: name:...,points:25,name:...,points:25
+  }
+
+  const criteria: DisplayCriterion[] = [];
+  const pattern =
+    /(?:^|[,;\n]\s*)name\s*:\s*([\s\S]*?)\s*,\s*(?:points|max_score|score|max)\s*:\s*([0-9]+(?:\.[0-9]+)?)/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const name = match[1]?.trim();
+    if (name && !isJunkCriterionName(name)) {
+      criteria.push({ name, maxScore: Number(match[2]) });
+    }
+  }
+
+  if (criteria.length > 0) return criteria;
+
+  return text
+    .split(/[;\n]+/)
+    .map((part) => part.trim())
+    .filter((part) => !isJunkCriterionName(part))
+    .map((name) => ({ name }));
+};
+
+const normalizeRubricCriteria = (rawCriteria: unknown): DisplayCriterion[] => {
+  const source = Array.isArray(rawCriteria) ? rawCriteria : [rawCriteria];
+
+  return source.flatMap((item) => {
+    if (typeof item === "string") {
+      return parsePackedCriteriaText(item);
+    }
+
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+    const record = item as Record<string, unknown>;
+
+    const nested = record.tieu_chi ?? record.criteria ?? record.items ?? record.parts;
+    if (nested) {
+      const normalizedNested = normalizeRubricCriteria(nested);
+      if (normalizedNested.length > 0) return normalizedNested;
+    }
+
+    const packedName = String(record.name ?? record.criteria_name ?? "").trim();
+    if (packedName.includes("name:") && packedName.includes("points:")) {
+      return parsePackedCriteriaText(packedName);
+    }
+
+    const criterion = toDisplayCriterion(record);
+    return criterion ? [criterion] : [];
+  });
+};
+
 export const SubmitForm = ({
   studentInfo,
   setStudentInfo,
@@ -79,6 +184,12 @@ export const SubmitForm = ({
         setIsLoadingDetail(false);
       });
   }, [studentInfo, API_BASE_URL]);
+
+  const visibleRubricCriteria = React.useMemo(
+    () => normalizeRubricCriteria(selectedAssignmentDetail?.criteria),
+    [selectedAssignmentDetail]
+  );
+
   const showFileToast = useCallback(
     (type: "success" | "error" | "warning", title: string, description: string) => {
       if (!settings.enableNotifications) return;
@@ -328,29 +439,25 @@ export const SubmitForm = ({
                   <div className="bg-white p-3 rounded-lg border border-emerald-100 shadow-sm">
                     <p className="text-xs font-bold text-emerald-600 mb-2 uppercase tracking-wider">Hệ thống tiêu chí (Rubric)</p>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto thin-scroll pr-1">
-                      {selectedAssignmentDetail.criteria && selectedAssignmentDetail.criteria.length > 0 ? (
-                        selectedAssignmentDetail.criteria
-                          .filter((c: any) => {
-                            const name = String(c.name || "").trim();
-                            const isJunk = !name || name === "{" || name === "}" || name === "[" || name === "]" || name === ":" || name === ",";
-                            return !isJunk && !name.includes('"tieu_chi"') && !name.includes("tieu_chi:");
-                          })
-                          .map((c: any, index: number) => (
-                          <motion.div 
-                            key={index} 
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="flex justify-between items-start gap-3 p-2 bg-emerald-50/30 rounded border border-emerald-50"
-                          >
-                            <span className="text-[13px] text-gray-700 leading-tight">
-                              {c.name}
-                            </span>
+                      {visibleRubricCriteria.length > 0 ? (
+                        visibleRubricCriteria.map((c, index) => (
+                        <motion.div 
+                          key={index} 
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="grid grid-cols-[1fr_auto] items-start gap-3 p-2 bg-emerald-50/30 rounded border border-emerald-50"
+                        >
+                          <span className="text-[13px] text-gray-700 leading-tight">
+                            {c.name}
+                          </span>
+                          {c.maxScore !== undefined && c.maxScore !== null && c.maxScore !== "" && (
                             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/50 px-1.5 py-0.5 rounded shrink-0">
-                              {c.max_score}đ
+                              {c.maxScore}đ
                             </span>
-                          </motion.div>
-                        ))
+                          )}
+                        </motion.div>
+                      ))
                       ) : (
                         <p className="text-xs text-gray-400 italic">Dựa vào phân tích logic & thuật toán DSA tổng quát.</p>
                       )}
