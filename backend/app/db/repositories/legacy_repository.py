@@ -6,19 +6,59 @@ from app.db.repositories.base import BaseRepository
 class LegacyRepository(BaseRepository):
     """Handles integration with legacy SQL Server tables (dbo.BAITAP)."""
 
+    _PACKED_CRITERION_RE = re.compile(
+        r'(?:^|[,;\n]\s*)(?:name|criteria_name|criterion|tieu_chi)\s*[:=]\s*'
+        r'(?P<name>.*?)(?:\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*(?P<score>\d+(?:\.\d+)?))?'
+        r'(?=\s*[,;\n]\s*(?:name|criteria_name|criterion|tieu_chi)\s*[:=]|\s*$)',
+        re.I | re.S,
+    )
+
     def _clean_criterion_name(self, name: str) -> str:
         if not name:
             return ""
         # Remove JSON artifacts and specific keys
         clean = name.replace('{', '').replace('}', '').replace('[', '').replace(']', '')
         clean = clean.replace('"tieu_chi":', '').replace('"criteria":', '').replace('"items":', '')
-        clean = clean.replace('tieu_chi:', '').replace('criteria:', '')
+        clean = clean.replace('"name":', '').replace('"criteria_name":', '').replace('"criterion":', '')
+        clean = clean.replace('tieu_chi:', '').replace('criteria:', '').replace('name:', '')
+        clean = clean.replace('criteria_name:', '').replace('criterion:', '')
+        clean = re.sub(r'\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*\d+(?:\.\d+)?\s*$', '', clean, flags=re.I)
         # Remove quotes
         clean = clean.replace('"', '').replace("'", "")
         # Remove leading/trailing symbols commonly found in JSON or bad splits
         clean = re.sub(r'^[,\s:•*-]+', '', clean)
         clean = re.sub(r'[,\s:•*-]+$', '', clean)
         return clean.strip()
+
+    def _split_criteria_text(self, raw_criteria: str) -> List[str]:
+        """Split BAITAP packed rubric text into individual criteria."""
+        if not raw_criteria:
+            return []
+
+        items: List[str] = []
+        packed_matches = list(self._PACKED_CRITERION_RE.finditer(raw_criteria))
+
+        if len(packed_matches) > 1:
+            for match in packed_matches:
+                name = self._clean_criterion_name(match.group("name") or "")
+                if not name or len(name) < 3:
+                    continue
+                score_raw = match.group("score")
+                if score_raw:
+                    items.append(f"{name} ({score_raw}d)")
+                else:
+                    items.append(name)
+            return items
+
+        parts = re.split(r'[;\n]+', raw_criteria)
+        for part in parts:
+            p_clean = self._clean_criterion_name(part)
+            if not p_clean or len(p_clean) < 3:
+                continue
+
+            items.append(part)
+
+        return items
 
     def get_baitap_criteria(self, assignment_code: Optional[str] = None, topic: Optional[str] = None, 
                            include_from_assignment: bool = False, split_packed_criteria: bool = False) -> List[Dict]:
@@ -44,7 +84,7 @@ class LegacyRepository(BaseRepository):
                 for r in rows:
                     raw_criteria = str(r[2]) if r[2] else ""
                     if split_packed_criteria and raw_criteria:
-                        parts = re.split(r'[;\n]+', raw_criteria)
+                        parts = self._split_criteria_text(raw_criteria)
                         for p in parts:
                             p_clean = self._clean_criterion_name(p)
                             if not p_clean or len(p_clean) < 3:
@@ -102,7 +142,7 @@ class LegacyRepository(BaseRepository):
                     raw_criteria = str(r[2]) if r[2] else ""
                     criteria_list = []
                     if raw_criteria:
-                        parts = re.split(r'[;\n]+', raw_criteria)
+                        parts = self._split_criteria_text(raw_criteria)
                         for p in parts:
                             p_clean = self._clean_criterion_name(p)
                             if not p_clean or len(p_clean) < 3:

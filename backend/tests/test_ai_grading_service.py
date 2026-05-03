@@ -1,5 +1,6 @@
 import unittest
 
+from app.db.repositories.legacy_repository import LegacyRepository
 from app.services.ai_grading_service import AIGradingService
 
 
@@ -112,6 +113,48 @@ class AIGradingServiceRubricCoverageTests(unittest.TestCase):
         self.assertIsNotNone(result.criteria_scores)
         self.assertEqual(len(result.criteria_scores), 1)
         self.assertEqual(result.criteria_scores[0]["criterion"], "Đúng thuật toán")
+
+    def test_enforce_rubric_coverage_splits_legacy_packed_names(self) -> None:
+        packed_name = (
+            "name:Xac dinh dung do phuc tap la O(n),points:25,"
+            "name:Thiet lap duoc so lan lap chinh xac la n/5,points:25,"
+            "name:Giai thich ro quy tac loai bo hang so nhan trong Big O,points:25,"
+            "name:Phan biet duoc su khac nhau giua so lan lap thuc te va bac tang truong thuat toan,points:25"
+        )
+        response = {
+            "normalized_score_10": 8.0,
+            "status": "AC",
+            "criteria_scores": [
+                {"criterion": "Xac dinh dung do phuc tap la O(n)", "earned": 25, "max": 25},
+                {"criterion": "Thiet lap duoc so lan lap chinh xac la n/5", "earned": 20, "max": 25},
+                {"criterion": "Giai thich ro quy tac loai bo hang so nhan trong Big O", "earned": 20, "max": 25},
+                {"criterion": "Phan biet duoc su khac nhau giua so lan lap thuc te va bac tang truong thuat toan", "earned": 15, "max": 25},
+            ],
+        }
+
+        updated = AIGradingService._enforce_rubric_coverage(
+            response,
+            {"criteria": [{"name": packed_name, "max_score": 100}]},
+        )
+
+        self.assertEqual(len(updated["criteria_scores"]), 4)
+        self.assertEqual(updated["normalized_score_10"], 8.0)
+        self.assertEqual(updated["criteria_scores"][0]["earned"], 25.0)
+
+    def test_legacy_repository_splits_comma_packed_criteria(self) -> None:
+        repo = LegacyRepository.__new__(LegacyRepository)
+        raw = (
+            "name:Xac dinh dung do phuc tap la O(n),points:25,"
+            "name:Thiet lap duoc so lan lap chinh xac la n/5,points:25,"
+            "name:Giai thich ro quy tac loai bo hang so nhan trong Big O,points:25,"
+            "name:Phan biet duoc su khac nhau giua so lan lap thuc te va bac tang truong thuat toan,points:25"
+        )
+
+        parts = repo._split_criteria_text(raw)
+
+        self.assertEqual(len(parts), 4)
+        self.assertIn("Xac dinh dung do phuc tap la O(n)", parts[0])
+        self.assertIn("(25d)", parts[0])
 
 
 if __name__ == "__main__":

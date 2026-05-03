@@ -17,6 +17,7 @@ import signal
 import webbrowser
 import threading
 import subprocess
+import atexit
 
 # Force UTF-8 output on Windows to avoid UnicodeEncodeError with ASCII arts
 if sys.stdout.encoding != 'utf-8':
@@ -28,6 +29,37 @@ if sys.stdout.encoding != 'utf-8':
 # Graceful shutdown
 # ---------------------------------------------------------------------------
 _shutdown_requested = False
+_frontend_process = None
+
+
+def _stop_frontend_process():
+    """Stop the frontend child process started by this launcher."""
+    global _frontend_process
+    process = _frontend_process
+    if process is None:
+        return
+    if process.poll() is not None:
+        _frontend_process = None
+        return
+
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        else:
+            process.terminate()
+            process.wait(timeout=5)
+    except Exception:
+        try:
+            process.kill()
+        except Exception:
+            pass
+    finally:
+        _frontend_process = None
 
 
 def _setup_signal_handlers():
@@ -36,6 +68,7 @@ def _setup_signal_handlers():
         global _shutdown_requested
         if not _shutdown_requested:
             _shutdown_requested = True
+            _stop_frontend_process()
             print(f"\n\n  {'=' * 54}")
             print(f"  🛑  Server stopped by user. Goodbye!")
             print(f"  {'=' * 54}\n")
@@ -239,6 +272,34 @@ def _kill_process_on_port(port: int):
     except Exception:
         pass
 
+    # 1b. Windows fallback: netstat works in shells where CIM/Get-NetTCPConnection is blocked.
+    if os.name == 'nt':
+        try:
+            output = subprocess.check_output(
+                ['netstat', '-ano'],
+                text=True,
+                stderr=subprocess.DEVNULL,
+                encoding='utf-8',
+                errors='replace',
+            )
+            for line in output.splitlines():
+                columns = line.split()
+                if len(columns) < 5 or columns[0].upper() != 'TCP':
+                    continue
+                local_address = columns[1]
+                state = columns[3].upper()
+                pid = columns[4]
+                if state == 'LISTENING' and local_address.endswith(f':{port}') and pid.isdigit() and int(pid) != os.getpid():
+                    print(f"  {Colors.yellow('i')} Found port {port} owner via netstat (PID {pid}). Stopping it...")
+                    subprocess.run(
+                        ['taskkill', '/F', '/T', '/PID', pid],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        check=False,
+                    )
+        except Exception:
+            pass
+
     # 2. Aggressive orphan process hunt
     # Uvicorn worker subprocesses (which hold the port) become ghost nodes if the parent is force killed.
     try:
@@ -286,6 +347,71 @@ def _ensure_frontend_built():
         print()
 
 
+def _frontend_dev_enabled() -> bool:
+    """Default to running Next.js dev server with the unified launcher."""
+    return os.getenv("START_FRONTEND_DEV", "true").lower() not in {"0", "false", "no", "off"}
+
+
+def _npm_executable() -> str:
+    """Use npm.cmd on Windows to avoid PowerShell execution policy issues."""
+    return "npm.cmd" if os.name == "nt" else "npm"
+
+
+def _start_frontend_dev(port: int = 3000):
+    """Start the Next.js frontend dev server in the background."""
+    global _frontend_process
+
+    if not _frontend_dev_enabled():
+        return None
+
+    frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+    package_json = os.path.join(frontend_dir, "package.json")
+    if not os.path.exists(package_json):
+        print(f"  {Colors.yellow('i')} Frontend package.json not found, skipping Next.js dev server.")
+        return None
+
+    node_modules = os.path.join(frontend_dir, "node_modules")
+    if not os.path.exists(node_modules):
+        print(f"  {Colors.yellow('i')} Installing frontend dependencies...")
+        install = subprocess.run([_npm_executable(), "install"], cwd=frontend_dir, shell=False)
+        if install.returncode != 0:
+            print(f"  {Colors.red('!!')} npm install failed. Frontend dev server was not started.")
+            return None
+
+    stdout_path = os.path.join(frontend_dir, "frontend-main.out.log")
+    stderr_path = os.path.join(frontend_dir, "frontend-main.err.log")
+    stdout = open(stdout_path, "a", encoding="utf-8", errors="replace")
+    stderr = open(stderr_path, "a", encoding="utf-8", errors="replace")
+
+    env = os.environ.copy()
+    env.setdefault("PORT", str(port))
+
+    creationflags = 0
+    if os.name == "nt":
+        creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
+    try:
+        _frontend_process = subprocess.Popen(
+            [_npm_executable(), "run", "dev"],
+            cwd=frontend_dir,
+            stdout=stdout,
+            stderr=stderr,
+            stdin=subprocess.DEVNULL,
+            env=env,
+            shell=False,
+            creationflags=creationflags,
+        )
+    except Exception as exc:
+        stdout.close()
+        stderr.close()
+        print(f"  {Colors.red('!!')} Could not start frontend dev server: {exc}")
+        return None
+
+    print(f"  {Colors.green('OK')} Frontend dev server starting on http://localhost:{port}")
+    print(f"  {Colors.dim('Logs: frontend/frontend-main.out.log and frontend/frontend-main.err.log')}")
+    return _frontend_process
+
+
 def _is_port_open(host: str, port: int) -> bool:
     """Return True when a process is already listening on host:port."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -309,11 +435,27 @@ def open_browser(host, port):
             pass
 
 
+def open_frontend_browser(host="127.0.0.1", port=3000):
+    """Open the frontend browser when the Next.js server is ready."""
+    start = time.time()
+    while time.time() - start < 30:
+        if _is_port_open(host, port):
+            url = f"http://localhost:{port}"
+            print(f"\n  {Colors.green('>>')} Opening frontend: {Colors.cyan(url)}")
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
+            return
+        time.sleep(0.5)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
     """Entry point for the DSA Fusion launcher."""
+    atexit.register(_stop_frontend_process)
     _setup_signal_handlers()
     _ensure_venv_python()
 
@@ -337,18 +479,24 @@ def main():
 
     print(f"    {Colors.green('OK')} {Colors.bold('All systems ready!')}")
     print(f"  {'=' * 58}")
-    print(f"  {Colors.cyan('Server:')}  http://127.0.0.1:8000")
-    print(f"  {Colors.cyan('Docs:')}    http://127.0.0.1:8000/docs")
-    print(f"  {Colors.cyan('Health:')}  http://127.0.0.1:8000/health")
+    print(f"  {Colors.cyan('Backend:')}  http://127.0.0.1:8000")
+    print(f"  {Colors.cyan('Frontend:')} http://localhost:3000")
+    print(f"  {Colors.cyan('Docs:')}     http://127.0.0.1:8000/docs")
+    print(f"  {Colors.cyan('Health:')}   http://127.0.0.1:8000/health")
     print(f"  {'=' * 58}")
     print(f"  {Colors.dim('Press CTRL+C to stop the server')}")
     print(f"\n  {Colors.yellow('i')} {Colors.bold('Mẹo:')} Chạy {Colors.cyan('python smart_launcher.py')} để có auto-reconnect!")
     print()
 
-    _ensure_frontend_built()
-
     # Open browser in background after server starts
     host, port = "127.0.0.1", 8000
+    frontend_port = 3000
+
+    for used_port in (port, frontend_port):
+        if _is_port_open(host, used_port):
+            print(f"  {Colors.yellow('i')} Port {used_port} is in use. Cleaning up for a fresh restart...")
+            _kill_process_on_port(used_port)
+            time.sleep(1)
 
     if _is_port_open(host, port):
         print(f"  {Colors.yellow('i')} Cổng {port} đang được sử dụng. Tiến hành dọn dẹp để khởi động hoàn toàn mới...")
@@ -360,7 +508,12 @@ def main():
             print(f"  {Colors.dim('Mẹo: dùng lệnh taskkill hoặc netstat để kiểm tra và đóng thủ công, hoặc khởi động lại máy.')}")
             sys.exit(1)
 
-    threading.Thread(target=open_browser, args=(host, port), daemon=True).start()
+    if _frontend_dev_enabled():
+        _start_frontend_dev(frontend_port)
+        threading.Thread(target=open_frontend_browser, args=(host, frontend_port), daemon=True).start()
+    else:
+        _ensure_frontend_built()
+        threading.Thread(target=open_browser, args=(host, port), daemon=True).start()
 
     # Start uvicorn
     try:
@@ -376,6 +529,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        _stop_frontend_process()
         print(f"\n  {'=' * 58}")
         print(f"  Máy chủ đã dừng. Nghỉ Game thôi !")
         print(f"  {'=' * 58}\n")

@@ -90,7 +90,7 @@ const parsePackedCriteriaText = (raw: string): DisplayCriterion[] => {
 
   const criteria: DisplayCriterion[] = [];
   const pattern =
-    /(?:^|[,;\n]\s*)name\s*:\s*([\s\S]*?)\s*,\s*(?:points|max_score|score|max)\s*:\s*([0-9]+(?:\.[0-9]+)?)/gi;
+    /(?:^|[,;\n]\s*)(?:name\s*:\s*)?([\s\S]*?)\s*,\s*(?:points|max_score|score|max)\s*:\s*([0-9]+(?:\.[0-9]+)?)/gi;
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(text)) !== null) {
@@ -129,7 +129,7 @@ const normalizeRubricCriteria = (rawCriteria: unknown): DisplayCriterion[] => {
     }
 
     const packedName = String(record.name ?? record.criteria_name ?? "").trim();
-    if (packedName.includes("name:") && packedName.includes("points:")) {
+    if (/(?:points|max_score|score|max)\s*:/i.test(packedName)) {
       return parsePackedCriteriaText(packedName);
     }
 
@@ -438,7 +438,7 @@ export const SubmitForm = ({
 
                   <div className="bg-white p-3 rounded-lg border border-emerald-100 shadow-sm">
                     <p className="text-xs font-bold text-emerald-600 mb-2 uppercase tracking-wider">Hệ thống tiêu chí (Rubric)</p>
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto thin-scroll pr-1">
+                    <ol className="space-y-1.5 max-h-48 overflow-y-auto thin-scroll pr-1">
                       {visibleRubricCriteria.length > 0 ? (
                         visibleRubricCriteria.map((c, index) => (
                         <motion.div 
@@ -446,8 +446,11 @@ export const SubmitForm = ({
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.05 }}
-                          className="grid grid-cols-[1fr_auto] items-start gap-3 p-2 bg-emerald-50/30 rounded border border-emerald-50"
+                          className="grid grid-cols-[auto_1fr_auto] items-start gap-2 p-2 bg-emerald-50/30 rounded border border-emerald-50"
                         >
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded bg-emerald-100 text-[11px] font-bold text-emerald-700">
+                            {index + 1}
+                          </span>
                           <span className="text-[13px] text-gray-700 leading-tight">
                             {c.name}
                           </span>
@@ -461,7 +464,7 @@ export const SubmitForm = ({
                       ) : (
                         <p className="text-xs text-gray-400 italic">Dựa vào phân tích logic & thuật toán DSA tổng quát.</p>
                       )}
-                    </div>
+                    </ol>
                   </div>
                 </motion.div>
               ) : (

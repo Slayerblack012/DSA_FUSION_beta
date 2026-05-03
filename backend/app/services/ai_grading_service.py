@@ -13,6 +13,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Optional
@@ -718,6 +719,30 @@ OUTPUT_JSON (chỉ JSON):
         return "\n".join(parts) if parts else "No AST analysis available"
 
     @staticmethod
+    def _split_packed_rubric_name(raw_name: str, fallback_max: float = 0.0) -> List[Dict[str, float]]:
+        """Split legacy packed names like name:...,points:25,name:...,points:25."""
+        if not raw_name or "name:" not in raw_name.lower():
+            return []
+
+        pattern = re.compile(
+            r'(?:^|[,;\n]\s*)name\s*[:=]\s*'
+            r'(?P<name>.*?)(?:\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*(?P<score>\d+(?:\.\d+)?))?'
+            r'(?=\s*[,;\n]\s*name\s*[:=]|\s*$)',
+            re.I | re.S,
+        )
+        items: List[Dict[str, float]] = []
+        for match in pattern.finditer(raw_name):
+            name = re.sub(r'^[\s,"\'{}\[\]:-]+|[\s,"\'{}\[\]:-]+$', "", match.group("name") or "")
+            if not name:
+                continue
+            try:
+                max_score = float(match.group("score") or fallback_max or 0)
+            except (TypeError, ValueError):
+                max_score = fallback_max
+            items.append({"name": name, "max": max(0.0, max_score)})
+        return items if len(items) > 1 else []
+
+    @staticmethod
     def _extract_rubric_items(rubric_context: Optional[Dict[str, Any]]) -> List[Dict[str, float]]:
         """Extract rubric criteria as ordered (name, max_score) pairs."""
         if not isinstance(rubric_context, dict):
@@ -738,6 +763,10 @@ OUTPUT_JSON (chỉ JSON):
                 max_score = float(item.get("max_score", 0) or 0)
             except (TypeError, ValueError):
                 max_score = 0.0
+            packed_items = AIGradingService._split_packed_rubric_name(name, max_score)
+            if packed_items:
+                items.extend(packed_items)
+                continue
             items.append({"name": name, "max": max(0.0, max_score)})
         return items
 
