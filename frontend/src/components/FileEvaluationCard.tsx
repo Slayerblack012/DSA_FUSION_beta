@@ -40,7 +40,65 @@ export const FileEvaluationCard = ({
   isExpanded,
   onToggleExpand,
 }: FileEvaluationCardProps) => {
+  
+  // Small sub-component to render a single criterion with collapse/expand
+  const CriterionRow = ({ criterion }: { criterion: any }) => {
+    const [expanded, setExpanded] = React.useState(false);
+    const label = (criterion.sourceText || criterion.criterion || "").replace(/^['\"]|['\"]$/g, "").trim();
+    const cleaned = label.replace(/\s+/g, " ");
+    const short = cleaned.length > 140 ? `${cleaned.slice(0, 137)}...` : cleaned;
+    const scorePercent = getScorePercent(criterion.earned, criterion.total);
+    const tone = getCriterionTone(scorePercent);
+    let parts = extractCriterionParts(cleaned).map((p) => p.trim()).filter(Boolean);
+    // Fallback: if extractor couldn't split parts, split by common separators
+    if (!parts || parts.length === 0) {
+      parts = cleaned
+        .split(/[,;•\n]/)
+        .map((p) => p.replace(/points\s*:?\s*\d+/gi, "").replace(/\bpoints\b/gi, "").trim())
+        .filter(Boolean);
+    }
 
+    return (
+      <div className={`rounded-lg border p-3 ${tone.cardClass}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1 max-w-[75%]">
+            {parts.length > 1 ? (
+              <div>
+                <ul className="list-disc pl-4 text-[13px] text-gray-800 leading-relaxed">
+                  {parts.map((p, i) => (
+                    <li key={i} className="truncate">
+                      {truncateText(p, 160)}
+                    </li>
+                  ))}
+                </ul>
+                {parts.join(" ").length > 160 && (
+                  <button
+                    className="text-[12px] text-blue-600 hover:underline mt-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpanded((s) => !s);
+                    }}
+                  >
+                    {expanded ? "Thu gọn" : "Xem thêm"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-[13px] font-medium text-gray-800 leading-relaxed">
+                {expanded ? cleaned : short}
+              </p>
+            )}
+          </div>
+          <span className={`text-[13px] font-semibold tabular-nums shrink-0 ${tone.textClass}`}>
+            {Number(criterion.earned).toFixed(2)}/{Number(criterion.total).toFixed(2)}
+          </span>
+        </div>
+        <div className="mt-2 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+          <div className={`h-full rounded-full ${tone.barClass}`} style={{ width: `${scorePercent}%` }} />
+        </div>
+      </div>
+    );
+  };
   const structuredFeedback = file.feedbacks.find((fb) =>
     hasStructuredMarkers(fb.message || "")
   );
@@ -155,28 +213,9 @@ export const FileEvaluationCard = ({
                           const isJunk = !label || label === "{" || label === "}" || label === "[" || label === "]" || label === ":" || label === ",";
                           return !isJunk && !label.includes('"tieu_chi"') && !label.includes("tieu_chi:");
                         })
-                        .map((criterion, cIdx) => {
-                        const scorePercent = getScorePercent(criterion.earned, criterion.total);
-                        const tone = getCriterionTone(scorePercent);
-                        const criterionLabel = (criterion.sourceText || criterion.criterion || "").replace(/^["']|["']$/g, "").trim();
-                        return (
-                          <div key={cIdx} className={`rounded-lg border p-3 ${tone.cardClass}`}>
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="space-y-1">
-                                <p className="text-[13px] font-medium text-gray-800 leading-relaxed whitespace-pre-wrap">
-                                  {criterionLabel}
-                                </p>
-                              </div>
-                              <span className={`text-[13px] font-semibold tabular-nums shrink-0 ${tone.textClass}`}>
-                                {criterion.earned.toFixed(2)}/{criterion.total.toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="mt-2 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                              <div className={`h-full rounded-full ${tone.barClass}`} style={{ width: `${scorePercent}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
+                        .map((criterion, cIdx) => (
+                          <CriterionRow key={cIdx} criterion={criterion} />
+                        ))}
                     </div>
                   ) : (
                     <p className="text-[13px] text-gray-500">Chưa có tiêu chí để hiển thị.</p>
@@ -324,22 +363,27 @@ function renderScoreProof(scoreProof: ScoreProof) {
           </div>
           
           <div className="grid gap-3 border-l-2 border-emerald-100/50 pl-4 ml-0.5">
-            {item.feedback && (
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70 block">Nguyên nhân (Reason)</span>
-                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                  {item.feedback}
-                </p>
+            <details className="rounded-lg bg-white/50 p-2" style={{ paddingLeft: 8 }}>
+              <summary className="text-[12px] text-emerald-700 font-semibold cursor-pointer">Xem nguyên nhân & bằng chứng</summary>
+              <div className="mt-3 space-y-3">
+                {item.feedback && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70 block">Nguyên nhân (Reason)</span>
+                    <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                      {item.feedback}
+                    </p>
+                  </div>
+                )}
+                {item.evidence && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70 block">Bằng chứng (Evidence)</span>
+                    <p className="text-[13px] text-slate-500 italic bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-mono break-all">
+                      {item.evidence}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-            {item.evidence && (
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70 block">Bằng chứng (Evidence)</span>
-                <p className="text-[13px] text-slate-500 italic bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-mono break-all">
-                  {item.evidence}
-                </p>
-              </div>
-            )}
+            </details>
           </div>
         </div>
       ))}
