@@ -8,21 +8,23 @@ from app.db.repositories.legacy_repository import LegacyRepository
 
 logger = logging.getLogger("dsa.repository")
 
+
 class GradingRepository:
     """
     Refactored Facade for database operations.
     Delegates work to specialized repositories for better maintainability.
     """
+
     def __init__(self, sql_server_url: str = None, sqlite_file: str = None):
         # Use centralized session manager
         self.db_manager = DatabaseManager(sql_server_url=sql_server_url)
-        
+
         # Initialize sub-repositories
         self.users = UserRepository(self.db_manager)
         self.submissions = SubmissionRepository(self.db_manager)
         self.rubrics = RubricRepository(self.db_manager)
         self.legacy = LegacyRepository(self.db_manager)
-        
+
         logger.info("GradingRepository (Facade) initialized and delegated.")
 
     def initialize(self):
@@ -31,20 +33,24 @@ class GradingRepository:
         return True
 
     # --- Backward Compatibility Wrappers ---
-    
+
     def save_result(self, result: Dict) -> int:
         return self.submissions.save_result(result)
 
     def get_summary_stats(self) -> Dict:
         return self.submissions.get_summary_stats()
 
-    def find_similar_submissions(self, fingerprint: str, threshold: float = 0.8, topic: str = None) -> List[Dict]:
+    def find_similar_submissions(
+        self, fingerprint: str, threshold: float = 0.8, topic: str = None
+    ) -> List[Dict]:
         return self.submissions.find_similar(fingerprint, threshold, topic)
 
     def get_user_by_username(self, username: str) -> Optional[Dict]:
         return self.users.get_by_username(username)
 
-    def create_user(self, username: str, password_hash: str, full_name: str, role: str = "STUDENT"):
+    def create_user(
+        self, username: str, password_hash: str, full_name: str, role: str = "STUDENT"
+    ):
         return self.users.create(username, password_hash, full_name, role)
 
     def get_all_submissions(self, *args, **kwargs):
@@ -88,4 +94,3 @@ class GradingRepository:
             self.close()
         except Exception:
             pass
-

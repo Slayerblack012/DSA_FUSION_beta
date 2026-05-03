@@ -2,10 +2,14 @@
 Initialize Database
 Run: python app/utils/init_db.py
 """
+
 import sys
 import os
 import sqlite3
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from app.models.models import Base
 from app.core.config import DB_FILE
@@ -45,11 +49,14 @@ if user_count == 0:
 
     # Student user
     student_hash = hash_password("sv123")
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO users (username, password_hash, full_name, role)
         VALUES (?, ?, ?, ?)
-    """, ("122000001", student_hash, "Student Nguyen Van A", "STUDENT"))
-    
+    """,
+        ("122000001", student_hash, "Student Nguyen Van A", "STUDENT"),
+    )
+
     conn.commit()
     print("[OK] Demo users created:")
     print("    - 122000001 / sv123 (STUDENT)")

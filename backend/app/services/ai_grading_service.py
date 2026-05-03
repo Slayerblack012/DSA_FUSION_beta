@@ -24,7 +24,9 @@ from app.core.config import AI_MAX_OUTPUT_TOKENS
 logger = logging.getLogger("dsa.services.ai_grading")
 
 # Maximum code length sent to the AI (characters)
-_MAX_CODE_LENGTH = 30_000  # Tăng lên 30,000 để hỗ trợ dự án nhiều files (multi-file projects)
+_MAX_CODE_LENGTH = (
+    30_000  # Tăng lên 30,000 để hỗ trợ dự án nhiều files (multi-file projects)
+)
 _MAX_FEEDBACK_CODE = 2_000  # Reduced from 3,000 → 2,000
 
 # Retry configuration
@@ -41,6 +43,7 @@ CIRCUIT_BREAKER_TIMEOUT = 60  # Seconds to wait before half-open
 @dataclass
 class CircuitBreakerState:
     """Circuit breaker state."""
+
     failures: int = 0
     last_failure_time: float = 0.0
     state: str = "closed"  # closed, open, half-open
@@ -78,7 +81,10 @@ class AIGradingService:
 
         if self._circuit_breaker.state == "open":
             # Check if timeout has passed
-            if time.time() - self._circuit_breaker.last_failure_time > CIRCUIT_BREAKER_TIMEOUT:
+            if (
+                time.time() - self._circuit_breaker.last_failure_time
+                > CIRCUIT_BREAKER_TIMEOUT
+            ):
                 self._circuit_breaker.state = "half-open"
                 logger.info("Circuit breaker half-open, testing...")
                 return True
@@ -100,10 +106,15 @@ class AIGradingService:
         if self._circuit_breaker.state == "half-open":
             # Half-open test failed → immediately reopen circuit
             self._circuit_breaker.state = "open"
-            logger.warning("Circuit breaker RE-OPENED after half-open test failure (total failures: %d)", self._circuit_breaker.failures)
+            logger.warning(
+                "Circuit breaker RE-OPENED after half-open test failure (total failures: %d)",
+                self._circuit_breaker.failures,
+            )
         elif self._circuit_breaker.failures >= CIRCUIT_BREAKER_THRESHOLD:
             self._circuit_breaker.state = "open"
-            logger.warning("Circuit breaker OPEN after %d failures", self._circuit_breaker.failures)
+            logger.warning(
+                "Circuit breaker OPEN after %d failures", self._circuit_breaker.failures
+            )
 
     # ------------------------------------------------------------------
     #  Retry Logic with Exponential Backoff
@@ -130,22 +141,27 @@ class AIGradingService:
                 if attempt == MAX_RETRIES - 1:
                     logger.error(
                         "AI grading: all %d attempts exhausted. Last error: %s",
-                        MAX_RETRIES, exc,
+                        MAX_RETRIES,
+                        exc,
                     )
                     raise last_exception
 
                 # Exponential backoff with ±10% jitter to avoid thundering herd
                 base_delay = min(
-                    INITIAL_RETRY_DELAY * (RETRY_EXPONENT ** attempt),
+                    INITIAL_RETRY_DELAY * (RETRY_EXPONENT**attempt),
                     MAX_RETRY_DELAY,
                 )
                 import random
+
                 jitter = base_delay * 0.1 * (random.random() - 0.5) * 2
                 total_delay = max(0.1, base_delay + jitter)
 
                 logger.warning(
                     "AI grading attempt %d/%d failed: %s. Retrying in %.2fs...",
-                    attempt + 1, MAX_RETRIES, exc, total_delay,
+                    attempt + 1,
+                    MAX_RETRIES,
+                    exc,
+                    total_delay,
                 )
                 await asyncio.sleep(total_delay)
 
@@ -250,7 +266,9 @@ OUTPUT_JSON (chỉ JSON):
             return False
 
         technical_review = response.get("technical_review")
-        review_text = technical_review.strip() if isinstance(technical_review, str) else ""
+        review_text = (
+            technical_review.strip() if isinstance(technical_review, str) else ""
+        )
 
         improvement = response.get("actionable_suggestions")
         if isinstance(improvement, list):
@@ -258,7 +276,9 @@ OUTPUT_JSON (chỉ JSON):
                 return False
 
         optimized_code = response.get("improved_code")
-        if isinstance(optimized_code, str) and cls._looks_placeholder_text(optimized_code):
+        if isinstance(optimized_code, str) and cls._looks_placeholder_text(
+            optimized_code
+        ):
             return False
 
         issues = response.get("evidence_based_issues", [])
@@ -269,7 +289,12 @@ OUTPUT_JSON (chỉ JSON):
         has_suggestions = isinstance(suggestions, list) and len(suggestions) > 0
 
         # Accept sparse but still useful responses if at least one key signal exists.
-        if not review_text and not has_criteria and not has_issues and not has_suggestions:
+        if (
+            not review_text
+            and not has_criteria
+            and not has_issues
+            and not has_suggestions
+        ):
             return False
 
         # Score must be a plausible number (not 0 for non-trivial code)
@@ -277,6 +302,7 @@ OUTPUT_JSON (chỉ JSON):
         try:
             score_val = float(score)
             import math
+
             if math.isnan(score_val) or math.isinf(score_val):
                 return False
         except (TypeError, ValueError):
@@ -323,7 +349,9 @@ OUTPUT_JSON (chỉ JSON):
             return None
 
     @classmethod
-    def _repair_response_schema(cls, response: Dict[str, Any], filename: str) -> Dict[str, Any]:
+    def _repair_response_schema(
+        cls, response: Dict[str, Any], filename: str
+    ) -> Dict[str, Any]:
         """Normalize partial/dirty model responses into expected schema."""
         repaired: Dict[str, Any] = dict(response or {})
 
@@ -358,29 +386,45 @@ OUTPUT_JSON (chỉ JSON):
             "correctness": float(breakdown.get("correctness", 0) or 0),
             "quality": float(breakdown.get("quality", 0) or 0),
             "efficiency": float(breakdown.get("efficiency", 0) or 0),
-            "structure_robustness": float(breakdown.get("structure_robustness", 0) or 0),
+            "structure_robustness": float(
+                breakdown.get("structure_robustness", 0) or 0
+            ),
             "documentation": float(breakdown.get("documentation", 0) or 0),
             "security": float(breakdown.get("security", 0) or 0),
         }
 
         review = repaired.get("technical_review")
         if not isinstance(review, str) or not review.strip():
-            review = repaired.get("analysis") or repaired.get("reasoning") or f"AI review for {filename}."
+            review = (
+                repaired.get("analysis")
+                or repaired.get("reasoning")
+                or f"AI review for {filename}."
+            )
         repaired["technical_review"] = str(review).strip()
 
         issues = repaired.get("evidence_based_issues", [])
         if isinstance(issues, str):
-            issues = [line.strip("- ").strip() for line in issues.splitlines() if line.strip()]
+            issues = [
+                line.strip("- ").strip() for line in issues.splitlines() if line.strip()
+            ]
         elif not isinstance(issues, list):
             issues = []
-        repaired["evidence_based_issues"] = [str(item).strip() for item in issues if str(item).strip()]
+        repaired["evidence_based_issues"] = [
+            str(item).strip() for item in issues if str(item).strip()
+        ]
 
         suggestions = repaired.get("actionable_suggestions", [])
         if isinstance(suggestions, str):
-            suggestions = [line.strip("- ").strip() for line in suggestions.splitlines() if line.strip()]
+            suggestions = [
+                line.strip("- ").strip()
+                for line in suggestions.splitlines()
+                if line.strip()
+            ]
         elif not isinstance(suggestions, list):
             suggestions = []
-        repaired["actionable_suggestions"] = [str(item).strip() for item in suggestions if str(item).strip()]
+        repaired["actionable_suggestions"] = [
+            str(item).strip() for item in suggestions if str(item).strip()
+        ]
 
         if "improved_code" not in repaired:
             repaired["improved_code"] = repaired.get("optimized_code")
@@ -457,16 +501,29 @@ OUTPUT_JSON (chỉ JSON):
             prompt = prompt.replace("{topic}", str(topic))
             prompt = prompt.replace("{filename}", str(filename))
             prompt = prompt.replace("{code}", str(processed_code))
-            prompt = prompt.replace("{problem_context}", str(self._format_problem_context(rubric_context, topic)))
-            prompt = prompt.replace("{ast_report}", str(self._format_ast(ast_report or {})))
-            prompt = prompt.replace("{rubric_context}", str(self._format_rubric_context(rubric_context)))
+            prompt = prompt.replace(
+                "{problem_context}",
+                str(self._format_problem_context(rubric_context, topic)),
+            )
+            prompt = prompt.replace(
+                "{ast_report}", str(self._format_ast(ast_report or {}))
+            )
+            prompt = prompt.replace(
+                "{rubric_context}", str(self._format_rubric_context(rubric_context))
+            )
             # Define JSON Schema for Gemini to follow strictly
             grading_schema = {
                 "type": "OBJECT",
                 "properties": {
                     "normalized_score_10": {"type": "NUMBER"},
-                    "status": {"type": "STRING", "enum": ["AC", "WA", "TLE", "RE", "FLAG"]},
-                    "algorithms_detected": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "status": {
+                        "type": "STRING",
+                        "enum": ["AC", "WA", "TLE", "RE", "FLAG"],
+                    },
+                    "algorithms_detected": {
+                        "type": "ARRAY",
+                        "items": {"type": "STRING"},
+                    },
                     "big_o": {"type": "STRING"},
                     "criteria_scores": {
                         "type": "ARRAY",
@@ -477,10 +534,10 @@ OUTPUT_JSON (chỉ JSON):
                                 "earned": {"type": "NUMBER"},
                                 "max": {"type": "NUMBER"},
                                 "feedback": {"type": "STRING"},
-                                "evidence": {"type": "STRING"}
+                                "evidence": {"type": "STRING"},
                             },
-                            "required": ["criterion", "earned", "max"]
-                        }
+                            "required": ["criterion", "earned", "max"],
+                        },
                     },
                     "breakdown": {
                         "type": "OBJECT",
@@ -490,14 +547,27 @@ OUTPUT_JSON (chỉ JSON):
                             "efficiency": {"type": "NUMBER"},
                             "structure_robustness": {"type": "NUMBER"},
                             "documentation": {"type": "NUMBER"},
-                            "security": {"type": "NUMBER"}
-                        }
+                            "security": {"type": "NUMBER"},
+                        },
                     },
                     "technical_review": {"type": "STRING"},
-                    "evidence_based_issues": {"type": "ARRAY", "items": {"type": "STRING"}},
-                    "actionable_suggestions": {"type": "ARRAY", "items": {"type": "STRING"}}
+                    "evidence_based_issues": {
+                        "type": "ARRAY",
+                        "items": {"type": "STRING"},
+                    },
+                    "actionable_suggestions": {
+                        "type": "ARRAY",
+                        "items": {"type": "STRING"},
+                    },
                 },
-                "required": ["normalized_score_10", "status", "criteria_scores", "technical_review", "evidence_based_issues", "actionable_suggestions"]
+                "required": [
+                    "normalized_score_10",
+                    "status",
+                    "criteria_scores",
+                    "technical_review",
+                    "evidence_based_issues",
+                    "actionable_suggestions",
+                ],
             }
 
             response = await self._execute_with_retry(
@@ -505,22 +575,33 @@ OUTPUT_JSON (chỉ JSON):
                 prompt,
                 temperature=0,
                 max_tokens=AI_MAX_OUTPUT_TOKENS or 8192,
-                response_schema=grading_schema
+                response_schema=grading_schema,
             )
             trace("observe", "ok", "Provider returned JSON response")
 
             # Agent-like self-heal: recover JSON object from raw provider output when possible
-            if isinstance(response, dict) and "error" in response and response.get("raw"):
+            if (
+                isinstance(response, dict)
+                and "error" in response
+                and response.get("raw")
+            ):
                 recovered = self._extract_json_from_raw(str(response.get("raw")))
                 if recovered:
                     logger.warning("Recovered JSON from raw AI output for %s", filename)
                     response = recovered
                     trace("repair", "ok", "Recovered JSON object from raw model text")
-            
+
             if isinstance(response, dict) and "error" in response:
                 if response.get("raw") and "is_recovered_from_error" in response:
-                    logger.warning("AI grading recovered from truncated response using Regex/Authority mode for %s", filename)
-                    trace("repair", "ok", "Recovered using AI Full Authority mode (Regex extraction)")
+                    logger.warning(
+                        "AI grading recovered from truncated response using Regex/Authority mode for %s",
+                        filename,
+                    )
+                    trace(
+                        "repair",
+                        "ok",
+                        "Recovered using AI Full Authority mode (Regex extraction)",
+                    )
                 else:
                     trace("verify", "fail", f"Provider error: {response.get('error')}")
                     raise ValueError(f"AI Provider Error: {response['error']}")
@@ -533,16 +614,24 @@ OUTPUT_JSON (chỉ JSON):
             response_before_rubric = dict(response)
             response = self._enforce_rubric_coverage(response, rubric_context)
             if response != response_before_rubric:
-                trace("repair", "ok", "Enforced rubric criteria coverage and recomputed score")
+                trace(
+                    "repair",
+                    "ok",
+                    "Enforced rubric criteria coverage and recomputed score",
+                )
 
             if rubric_context and not response.get("criteria_scores"):
-                trace("verify", "warn", "Missing criteria_scores, server will align output to rubric criteria")
+                trace(
+                    "verify",
+                    "warn",
+                    "Missing criteria_scores, server will align output to rubric criteria",
+                )
 
             if not self._is_meaningful_response(response):
                 trace("verify", "fail", "Response failed meaningfulness validation")
                 raise ValueError("AI response was not meaningful enough to trust")
             trace("verify", "ok", "Response passed validation")
-                
+
             result = self._parse(
                 response,
                 filename,
@@ -571,7 +660,8 @@ OUTPUT_JSON (chỉ JSON):
 
         # Remove TTL-expired entries
         expired_keys = [
-            key for key, (timestamp, _) in self._response_cache.items()
+            key
+            for key, (timestamp, _) in self._response_cache.items()
             if now - timestamp > self._cache_ttl
         ]
         for key in expired_keys:
@@ -582,15 +672,22 @@ OUTPUT_JSON (chỉ JSON):
         if overflow > 0:
             sorted_keys = sorted(
                 self._response_cache,
-                key=lambda k: self._response_cache[k][0]  # sort by insertion/access time
+                key=lambda k: self._response_cache[k][
+                    0
+                ],  # sort by insertion/access time
             )
             for key in sorted_keys[:overflow]:
                 del self._response_cache[key]
-            logger.debug("Cache LRU eviction: removed %d entries, size now %d",
-                         overflow, len(self._response_cache))
+            logger.debug(
+                "Cache LRU eviction: removed %d entries, size now %d",
+                overflow,
+                len(self._response_cache),
+            )
 
     @staticmethod
-    def _format_problem_context(rubric_context: Optional[Dict[str, Any]], topic: str) -> str:
+    def _format_problem_context(
+        rubric_context: Optional[Dict[str, Any]], topic: str
+    ) -> str:
         """Render assignment/problem statement context for AI to reason before rubric scoring."""
         if not rubric_context:
             return f"Không có đề bài chi tiết trong dữ liệu rubric. Chủ đề hiện tại: {topic}."
@@ -645,17 +742,23 @@ OUTPUT_JSON (chỉ JSON):
         if not criteria:
             return "No rubric criteria. Grade by standard DSA criteria."
 
-        sorted_criteria = sorted(criteria, key=lambda c: c.get("max_score", 0), reverse=True)
+        sorted_criteria = sorted(
+            criteria, key=lambda c: c.get("max_score", 0), reverse=True
+        )
 
-        lines = ["BẮT BUỘC: Chỉ chấm điểm theo các tiêu chí dưới đây (giữ nguyên tên tiêu chí):"]
+        lines = [
+            "BẮT BUỘC: Chỉ chấm điểm theo các tiêu chí dưới đây (giữ nguyên tên tiêu chí):"
+        ]
         for idx, item in enumerate(sorted_criteria, start=1):
-            name = (item.get("name") or item.get("criteria_name") or "Criterion").strip()
+            name = (
+                item.get("name") or item.get("criteria_name") or "Criterion"
+            ).strip()
             max_score = item.get("max_score", 0)
             description = (item.get("description") or "").strip()
-            if len(description) > 150: # Increased from 60
+            if len(description) > 150:  # Increased from 60
                 description = description[:147] + "..."
-            
-            lines.append(f"{idx}. TIÊU CHÍ: \"{name}\" | ĐIỂM TỐI ĐA: {max_score}")
+
+            lines.append(f'{idx}. TIÊU CHÍ: "{name}" | ĐIỂM TỐI ĐA: {max_score}')
             if description:
                 lines.append(f"   Mô tả yêu cầu: {description}")
 
@@ -670,6 +773,7 @@ OUTPUT_JSON (chỉ JSON):
         Guards against NaN and Inf.
         """
         import math
+
         try:
             score = float(raw_score)
         except (TypeError, ValueError):
@@ -719,20 +823,24 @@ OUTPUT_JSON (chỉ JSON):
         return "\n".join(parts) if parts else "No AST analysis available"
 
     @staticmethod
-    def _split_packed_rubric_name(raw_name: str, fallback_max: float = 0.0) -> List[Dict[str, float]]:
+    def _split_packed_rubric_name(
+        raw_name: str, fallback_max: float = 0.0
+    ) -> List[Dict[str, float]]:
         """Split legacy packed names like name:...,points:25,name:...,points:25."""
         if not raw_name or "name:" not in raw_name.lower():
             return []
 
         pattern = re.compile(
-            r'(?:^|[,;\n]\s*)name\s*[:=]\s*'
-            r'(?P<name>.*?)(?:\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*(?P<score>\d+(?:\.\d+)?))?'
-            r'(?=\s*[,;\n]\s*name\s*[:=]|\s*$)',
+            r"(?:^|[,;\n]\s*)name\s*[:=]\s*"
+            r"(?P<name>.*?)(?:\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*(?P<score>\d+(?:\.\d+)?))?"
+            r"(?=\s*[,;\n]\s*name\s*[:=]|\s*$)",
             re.I | re.S,
         )
         items: List[Dict[str, float]] = []
         for match in pattern.finditer(raw_name):
-            name = re.sub(r'^[\s,"\'{}\[\]:-]+|[\s,"\'{}\[\]:-]+$', "", match.group("name") or "")
+            name = re.sub(
+                r'^[\s,"\'{}\[\]:-]+|[\s,"\'{}\[\]:-]+$', "", match.group("name") or ""
+            )
             if not name:
                 continue
             try:
@@ -743,7 +851,9 @@ OUTPUT_JSON (chỉ JSON):
         return items if len(items) > 1 else []
 
     @staticmethod
-    def _extract_rubric_items(rubric_context: Optional[Dict[str, Any]]) -> List[Dict[str, float]]:
+    def _extract_rubric_items(
+        rubric_context: Optional[Dict[str, Any]],
+    ) -> List[Dict[str, float]]:
         """Extract rubric criteria as ordered (name, max_score) pairs."""
         if not isinstance(rubric_context, dict):
             return []
@@ -837,7 +947,10 @@ OUTPUT_JSON (chỉ JSON):
                 earned = 0.0
 
             try:
-                model_max = float(existing.get("max", existing.get("max_score", rubric_max)) or rubric_max)
+                model_max = float(
+                    existing.get("max", existing.get("max_score", rubric_max))
+                    or rubric_max
+                )
             except (TypeError, ValueError):
                 model_max = rubric_max
 
@@ -886,15 +999,17 @@ OUTPUT_JSON (chỉ JSON):
     ) -> GradingResult:
         """Parse the AI response dict into a ``GradingResult``."""
         # 1. Mandatory Fields
-        score = AIGradingService._normalize_score_10(response.get("normalized_score_10", response.get("score", 0.0)))
+        score = AIGradingService._normalize_score_10(
+            response.get("normalized_score_10", response.get("score", 0.0))
+        )
         status = response.get("status", "WA")
-        
+
         algorithms = response.get("algorithms_detected", [])
         if isinstance(algorithms, str):
             algorithms = [algorithms]
         elif not isinstance(algorithms, list):
             algorithms = []
-            
+
         big_o = response.get("big_o", "Unknown")
 
         criteria_scores = response.get("criteria_scores", [])
@@ -902,7 +1017,8 @@ OUTPUT_JSON (chỉ JSON):
             criteria_scores = []
 
         allowed_criteria_names = {
-            item["name"] for item in AIGradingService._extract_rubric_items(rubric_context)
+            item["name"]
+            for item in AIGradingService._extract_rubric_items(rubric_context)
         }
         dropped_non_rubric: List[str] = []
 
@@ -912,7 +1028,12 @@ OUTPUT_JSON (chỉ JSON):
                 continue
             criterion = str(item.get("criterion") or item.get("name") or "").strip()
             # Filter out JSON garbage names or very short hallucinated delimiters
-            if not criterion or criterion in ['{', '}', '[', ']', ':', ',', '"', '""'] or criterion.startswith('"tieu_chi"') or criterion.startswith('tieu_chi'):
+            if (
+                not criterion
+                or criterion in ["{", "}", "[", "]", ":", ",", '"', '""']
+                or criterion.startswith('"tieu_chi"')
+                or criterion.startswith("tieu_chi")
+            ):
                 continue
             if allowed_criteria_names and criterion not in allowed_criteria_names:
                 dropped_non_rubric.append(criterion)
@@ -926,14 +1047,18 @@ OUTPUT_JSON (chỉ JSON):
             except (TypeError, ValueError):
                 max_score = 0.0
             feedback = str(item.get("feedback") or item.get("comment") or "").strip()
-            evidence = str(item.get("evidence") or item.get("source_text") or "").strip()
-            normalized_criteria_scores.append({
-                "criterion": criterion,
-                "earned": round(max(0.0, earned), 2),
-                "max": round(max(0.0, max_score), 2),
-                "feedback": feedback,
-                "evidence": evidence,
-            })
+            evidence = str(
+                item.get("evidence") or item.get("source_text") or ""
+            ).strip()
+            normalized_criteria_scores.append(
+                {
+                    "criterion": criterion,
+                    "earned": round(max(0.0, earned), 2),
+                    "max": round(max(0.0, max_score), 2),
+                    "feedback": feedback,
+                    "evidence": evidence,
+                }
+            )
 
         if dropped_non_rubric:
             logger.warning(
@@ -942,19 +1067,21 @@ OUTPUT_JSON (chỉ JSON):
                 filename,
                 dropped_non_rubric,
             )
-        
+
         # Breakdown score
         breakdown = response.get("breakdown", {})
         # Feedback and review
-        technical_review = str(response.get("technical_review", "Không có đánh giá chi tiết."))
-        
+        technical_review = str(
+            response.get("technical_review", "Không có đánh giá chi tiết.")
+        )
+
         # 2. Detail lists
         evidence_based_issues = response.get("evidence_based_issues", [])
         if isinstance(evidence_based_issues, str):
             evidence_based_issues = [evidence_based_issues]
         elif not isinstance(evidence_based_issues, list):
             evidence_based_issues = []
-            
+
         actionable_suggestions = response.get("actionable_suggestions", [])
         if isinstance(actionable_suggestions, str):
             actionable_suggestions = [actionable_suggestions]
@@ -969,7 +1096,7 @@ OUTPUT_JSON (chỉ JSON):
             actionable_suggestions = [
                 "Em đã có nền tảng triển khai tốt, hãy tiếp tục phát huy phần tổ chức lời giải hiện tại.",
                 "Em nên bổ sung xử lý biên và tăng độ bao phủ test để thuật toán ổn định hơn.",
-                "Em có thể tối ưu thêm độ rõ ràng của code (đặt tên, tách hàm, chú thích ngắn gọn) để dễ bảo trì."
+                "Em có thể tối ưu thêm độ rõ ràng của code (đặt tên, tách hàm, chú thích ngắn gọn) để dễ bảo trì.",
             ]
 
         optimized_code = response.get("improved_code")
@@ -989,18 +1116,24 @@ OUTPUT_JSON (chỉ JSON):
                 parts.append(line)
         if breakdown:
             parts.append("\n### Bảng điểm chi tiết")
-            parts.append(f"- Độ chính xác thuật toán: {breakdown.get('correctness', 0)}/10")
+            parts.append(
+                f"- Độ chính xác thuật toán: {breakdown.get('correctness', 0)}/10"
+            )
             parts.append(f"- Chất lượng Pythonic: {breakdown.get('quality', 0)}/10")
             parts.append(f"- Hiệu năng Big O: {breakdown.get('efficiency', 0)}/10")
-            parts.append(f"- Cấu trúc dữ liệu & Xử lý lỗi: {breakdown.get('structure_robustness', 0)}/10")
-            parts.append(f"- Tài liệu (Docstring): {breakdown.get('documentation', 0)}/10")
+            parts.append(
+                f"- Cấu trúc dữ liệu & Xử lý lỗi: {breakdown.get('structure_robustness', 0)}/10"
+            )
+            parts.append(
+                f"- Tài liệu (Docstring): {breakdown.get('documentation', 0)}/10"
+            )
             parts.append(f"- Bảo mật (Security): {breakdown.get('security', 0)}/10")
             parts.append(f"-> Độ phức tạp phát hiện: {big_o}")
 
         if evidence_based_issues:
             parts.append("\n### Lỗi và vấn đề cần sửa")
             parts.extend(f"- {iss}" for iss in evidence_based_issues)
-            
+
         if actionable_suggestions:
             parts.append("\n### Gợi ý cải thiện")
             parts.extend(f"- {sug}" for sug in actionable_suggestions)
@@ -1017,8 +1150,12 @@ OUTPUT_JSON (chỉ JSON):
             plagiarism_detected=False,
             breakdown=breakdown,
             complexity=big_o,
-            weaknesses="\n".join(f"- {w}" for w in evidence_based_issues) if evidence_based_issues else None,
-            improvement="\n".join(f"- {s}" for s in actionable_suggestions) if actionable_suggestions else None,
+            weaknesses="\n".join(f"- {w}" for w in evidence_based_issues)
+            if evidence_based_issues
+            else None,
+            improvement="\n".join(f"- {s}" for s in actionable_suggestions)
+            if actionable_suggestions
+            else None,
             reasoning=technical_review,
             optimized_code=optimized_code,
             agent_trace=agent_trace or [],

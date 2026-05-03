@@ -58,6 +58,23 @@ npm install
 npm run dev
 ```
 
+## ✅ Engineering Quality Gates
+
+### Local pre-commit
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+### CI checks (GitHub Actions)
+
+- Backend: `ruff check`, `ruff format --check`, `pytest`
+- Frontend: `npm run lint`, `npm run build`
+
+These checks prevent regressions in style, quality, and build health before merge.
+
 ## ⚙️ Environment Configuration (`.env`)
 
 At the root directory (or `backend/.env`), ensure the following critical variables are set:

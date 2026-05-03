@@ -26,17 +26,20 @@ logger = logging.getLogger("dsa.sandbox")
 # Check for psutil availability once at module load
 try:
     import psutil
+
     HAS_PSUTIL = True
 except ImportError:
     HAS_PSUTIL = False
 
 # Only import ctypes once globally if psutil is unavailable on Windows
-if sys.platform == 'win32' and not HAS_PSUTIL:
+if sys.platform == "win32" and not HAS_PSUTIL:
     import ctypes
+
 
 @dataclass
 class SandboxResult:
     """Result from sandbox execution."""
+
     success: bool
     output: str
     error: str
@@ -50,7 +53,7 @@ class SandboxResult:
 def _get_process_memory_mb(pid: int) -> float:
     """Get current memory usage of a process in MB."""
     try:
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             # Windows: Use wmic or psutil
             if HAS_PSUTIL:
                 process = psutil.Process(pid)
@@ -61,9 +64,9 @@ def _get_process_memory_mb(pid: int) -> float:
                 return 0.0
         else:
             # Linux: Read from /proc
-            with open(f'/proc/{pid}/status', 'r') as f:
+            with open(f"/proc/{pid}/status", "r") as f:
                 for line in f:
-                    if line.startswith('VmRSS:'):
+                    if line.startswith("VmRSS:"):
                         # VmRSS is in kB
                         parts = line.split()
                         if len(parts) >= 2:
@@ -81,14 +84,18 @@ def _monitor_process_memory(
 ) -> bool:
     """
     Monitor process memory usage.
-    
+
     Returns True if memory limit exceeded, False otherwise.
     """
     while not stop_event.is_set():
         try:
             memory_mb = _get_process_memory_mb(process.pid)
             if memory_mb > max_memory_mb:
-                logger.warning("Process memory limit exceeded: %.2f MB > %.2f MB", memory_mb, max_memory_mb)
+                logger.warning(
+                    "Process memory limit exceeded: %.2f MB > %.2f MB",
+                    memory_mb,
+                    max_memory_mb,
+                )
                 memory_exceeded.set()
                 stop_event.set()
                 try:
@@ -103,10 +110,7 @@ def _monitor_process_memory(
 
 
 def run_python_sandbox(
-    code: str,
-    input_str: str = "",
-    timeout: int = None,
-    max_memory_mb: int = None
+    code: str, input_str: str = "", timeout: int = None, max_memory_mb: int = None
 ) -> SandboxResult:
     """Run Python code in sandbox for a single input."""
     results = run_python_sandbox_batch(code, [input_str], timeout, max_memory_mb)
@@ -117,15 +121,15 @@ def run_python_sandbox_batch(
     code: str,
     inputs: list[str],
     timeout_per_case: int = None,
-    max_memory_mb: int = None
+    max_memory_mb: int = None,
 ) -> list[SandboxResult]:
     """
     Run Python code in sandbox for MULTIPLE inputs in ONE process.
-    
+
     This is much faster than running one process per test case.
     """
     timeout_per_case = timeout_per_case or SANDBOX_MAX_CPU_TIME
-    total_timeout = timeout_per_case * len(inputs) + 2 # Add buffer
+    total_timeout = timeout_per_case * len(inputs) + 2  # Add buffer
     max_memory_mb = max_memory_mb or SANDBOX_MAX_MEMORY_MB
 
     # Wrapper code to handle multiple test cases
@@ -176,11 +180,7 @@ print(json.dumps(results))
 
     # Create temporary file
     with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".py",
-        delete=False,
-        encoding="utf-8",
-        newline='\n'
+        mode="w", suffix=".py", delete=False, encoding="utf-8", newline="\n"
     ) as f:
         f.write(wrapper_code)
         temp_file = f.name
@@ -192,7 +192,9 @@ print(json.dumps(results))
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            if sys.platform == "win32"
+            else 0,
         )
 
         # Start memory monitor thread
@@ -212,7 +214,9 @@ print(json.dumps(results))
             memory_stop.set()
             memory_monitor.join(timeout=1)
 
-        if memory_exceeded.is_set() or (process.returncode is not None and process.returncode < 0):
+        if memory_exceeded.is_set() or (
+            process.returncode is not None and process.returncode < 0
+        ):
             memory_exceeded.set()
 
         if memory_exceeded.is_set():
@@ -225,7 +229,8 @@ print(json.dumps(results))
                     memory_used=max_memory_mb,
                     return_code=process.returncode,
                     memory_exceeded=True,
-                ) for _ in inputs
+                )
+                for _ in inputs
             ]
 
         try:
@@ -236,9 +241,10 @@ print(json.dumps(results))
                     output=r["output"],
                     error=r["error"] or stderr,
                     time_used=r["time_used"],
-                    memory_used=0.0, # Approximate
-                    return_code=process.returncode or 0
-                ) for r in batch_results
+                    memory_used=0.0,  # Approximate
+                    return_code=process.returncode or 0,
+                )
+                for r in batch_results
             ]
         except Exception:
             # Fallback if JSON parsing fails
@@ -249,8 +255,11 @@ print(json.dumps(results))
                     error=stderr or "Process failed to produce valid JSON results",
                     time_used=0,
                     memory_used=0,
-                    return_code=process.returncode if process.returncode is not None else -1
-                ) for _ in inputs
+                    return_code=process.returncode
+                    if process.returncode is not None
+                    else -1,
+                )
+                for _ in inputs
             ]
 
     except subprocess.TimeoutExpired:
@@ -265,8 +274,9 @@ print(json.dumps(results))
                 error="Batch execution timeout",
                 time_used=timeout_per_case,
                 memory_used=0,
-                timeout=True
-            ) for _ in inputs
+                timeout=True,
+            )
+            for _ in inputs
         ]
     except Exception as e:
         return [
@@ -275,8 +285,9 @@ print(json.dumps(results))
                 output="",
                 error=f"Sandbox error: {str(e)}",
                 time_used=0,
-                memory_used=0
-            ) for _ in inputs
+                memory_used=0,
+            )
+            for _ in inputs
         ]
     finally:
         try:
@@ -286,33 +297,32 @@ print(json.dumps(results))
 
 
 def run_with_sandbox_limits(
-    code: str,
-    test_cases: list,
-    timeout: int = None,
-    max_memory_mb: int = None
+    code: str, test_cases: list, timeout: int = None, max_memory_mb: int = None
 ) -> list:
     """Run multiple test cases using the optimized batch sandbox."""
     inputs = [tc[0] for tc in test_cases]
     expectations = [tc[1] for tc in test_cases]
-    
+
     batch_results = run_python_sandbox_batch(code, inputs, timeout, max_memory_mb)
-    
+
     final_results = []
     for i, result in enumerate(batch_results):
         expected_output = expectations[i]
         passed = result.success and result.output.strip() == expected_output.strip()
 
-        final_results.append({
-            "testcase_id": f"test_{i + 1}",
-            "passed": passed,
-            "actual_output": result.output,
-            "expected_output": expected_output,
-            "error": result.error,
-            "time_ms": result.time_used * 1000,
-            "memory_kb": result.memory_used * 1024,
-            "timeout": result.timeout,
-            "memory_exceeded": result.memory_exceeded,
-        })
+        final_results.append(
+            {
+                "testcase_id": f"test_{i + 1}",
+                "passed": passed,
+                "actual_output": result.output,
+                "expected_output": expected_output,
+                "error": result.error,
+                "time_ms": result.time_used * 1000,
+                "memory_kb": result.memory_used * 1024,
+                "timeout": result.timeout,
+                "memory_exceeded": result.memory_exceeded,
+            }
+        )
 
     return final_results
 

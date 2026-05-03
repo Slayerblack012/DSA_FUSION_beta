@@ -4,24 +4,14 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Search,
-  ChevronDown,
-  Code2,
-  MessageCircle,
   Clock,
-  ShieldCheck,
-  Award,
-  Zap,
-  Layers,
   GraduationCap,
 } from "lucide-react";
 import type {
   ResultRecord,
   ResultFileFilter,
   ResultFileSort,
-  FileEvaluation,
-  ScoreProof,
 } from "@/types";
-import { parseAiAdvice, getScorePercent, getCriterionTone } from "@/hooks/useAiAdvice";
 import { FileEvaluationCard } from "./FileEvaluationCard";
 
 interface ResultsTabProps {

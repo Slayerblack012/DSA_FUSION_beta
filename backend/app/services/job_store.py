@@ -69,8 +69,8 @@ class InMemoryJobStore(BaseJobStore):
     def __init__(self, max_size: int = MAX_JOBS_IN_MEMORY) -> None:
         self._store: Dict[str, Dict[str, Any]] = {}
         self._timestamps: Dict[str, float] = {}
-        self._insertion_order: deque = deque()   # O(1) pop from either end
-        self._order_set: Set[str] = set()          # O(1) membership check
+        self._insertion_order: deque = deque()  # O(1) pop from either end
+        self._order_set: Set[str] = set()  # O(1) membership check
         self._max_size = max_size
         self._lock = asyncio.Lock()
 
@@ -126,7 +126,8 @@ class InMemoryJobStore(BaseJobStore):
         async with self._lock:
             now = time.time()
             expired = [
-                jid for jid, ts in self._timestamps.items()
+                jid
+                for jid, ts in self._timestamps.items()
                 if now - ts > JOB_TTL_SECONDS
             ]
             for jid in expired:
@@ -157,7 +158,9 @@ class InMemoryJobStore(BaseJobStore):
             return {
                 "total_jobs": len(self._store),
                 "max_size": self._max_size,
-                "oldest_job_age": time.time() - min(self._timestamps.values()) if self._timestamps else 0,
+                "oldest_job_age": time.time() - min(self._timestamps.values())
+                if self._timestamps
+                else 0,
             }
 
 
@@ -375,6 +378,7 @@ class _JobStoreDictWrapper:
     def _run_sync(self, coro):
         """Run a coroutine from sync context, handling event loop presence."""
         import asyncio
+
         try:
             asyncio.get_running_loop()
             # We're inside a running loop — can't block
@@ -412,7 +416,9 @@ class _JobStoreDictWrapper:
         result = await self._store.get(job_id)
         return result if result is not None else default
 
-    async def set_async(self, job_id: str, data: Dict[str, Any], ttl: int = None) -> None:
+    async def set_async(
+        self, job_id: str, data: Dict[str, Any], ttl: int = None
+    ) -> None:
         """Async set - preferred method."""
         data.setdefault("created_at", time.time())
         await self._store.set(job_id, data, ttl)
@@ -464,7 +470,10 @@ def start_job_cleanup() -> None:
         loop = asyncio.get_running_loop()
         _cleanup_task = loop.create_task(_cleanup_loop())
         _cleanup_task.set_name("job_cleanup")
-        logger.info("Background job cleanup task started (interval: %ds).", CLEANUP_INTERVAL_SECONDS)
+        logger.info(
+            "Background job cleanup task started (interval: %ds).",
+            CLEANUP_INTERVAL_SECONDS,
+        )
     except RuntimeError:
         logger.warning("Could not start cleanup task: no running event loop")
 
@@ -484,6 +493,7 @@ async def stop_job_cleanup() -> None:
 def stop_job_cleanup_sync() -> None:
     """Sync wrapper for stop_job_cleanup."""
     import asyncio
+
     try:
         loop = asyncio.get_running_loop()
         loop.create_task(stop_job_cleanup())

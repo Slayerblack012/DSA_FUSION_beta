@@ -42,7 +42,7 @@ def get_test_cases(topic: str = None) -> List[Dict]:
             test_id = filename[:-6]
         elif filename.startswith("input_") and filename.endswith(".txt"):
             test_id = filename[6:-4]
-            
+
         if test_id:
             input_file = os.path.join(testcase_dir, filename)
             # Try matching output file
@@ -86,21 +86,23 @@ def get_all_topics() -> List[str]:
     return sorted(topics)
 
 
-def save_test_case(topic: str, test_id: str, input_str: str, expected_output: str) -> bool:
+def save_test_case(
+    topic: str, test_id: str, input_str: str, expected_output: str
+) -> bool:
     """Save a new test case."""
     try:
         topic_dir = os.path.join(TESTCASE_ROOT, topic)
         if not os.path.exists(topic_dir):
             os.makedirs(topic_dir)
-            
+
         input_file = os.path.join(topic_dir, f"{test_id}.input")
         output_file = os.path.join(topic_dir, f"{test_id}.output")
-        
+
         with open(input_file, "w", encoding="utf-8") as f:
             f.write(input_str)
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(expected_output)
-            
+
         logger.info("Saved test case %s for topic %s", test_id, topic)
         return True
     except Exception as e:
@@ -114,12 +116,12 @@ def delete_test_case(topic: str, test_id: str) -> bool:
         topic_dir = os.path.join(TESTCASE_ROOT, topic)
         input_file = os.path.join(topic_dir, f"{test_id}.input")
         output_file = os.path.join(topic_dir, f"{test_id}.output")
-        
+
         if os.path.exists(input_file):
             os.remove(input_file)
         if os.path.exists(output_file):
             os.remove(output_file)
-            
+
         logger.info("Deleted test case %s from topic %s", test_id, topic)
         return True
     except Exception as e:

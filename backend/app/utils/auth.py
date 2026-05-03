@@ -66,9 +66,7 @@ def _get_jwt_secret() -> str:
                 "CRITICAL: JWT_SECRET_KEY must be set in production environment. "
                 "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(64))'"
             )
-        logger.warning(
-            "Using default JWT_SECRET_KEY. This is INSECURE for production!"
-        )
+        logger.warning("Using default JWT_SECRET_KEY. This is INSECURE for production!")
     return JWT_SECRET_KEY
 
 
@@ -142,7 +140,11 @@ def verify_token(token: str, token_type: str = "access") -> Optional[Dict]:
 
         # Check token type
         if payload.get("type") != token_type:
-            logger.warning("Token type mismatch: expected=%s, got=%s", token_type, payload.get("type"))
+            logger.warning(
+                "Token type mismatch: expected=%s, got=%s",
+                token_type,
+                payload.get("type"),
+            )
             return None
 
         # Check blacklist
@@ -240,7 +242,11 @@ def get_current_user(authorization_header: str) -> Optional[Dict]:
 def get_token_stats() -> Dict:
     """Get authentication statistics."""
     now = time.time()
-    active = sum(1 for v in _token_blacklist.values() if now - v < 86400 * REFRESH_TOKEN_EXPIRY_DAYS)
+    active = sum(
+        1
+        for v in _token_blacklist.values()
+        if now - v < 86400 * REFRESH_TOKEN_EXPIRY_DAYS
+    )
     return {
         "blacklisted_tokens": len(_token_blacklist),
         "active_blacklist_entries": active,

@@ -92,20 +92,24 @@ Rubric:
     print("Component Breakdown:")
     print("-" * 70)
     for name, chars in components.items():
-        print(f"  {name:40s} {chars:6,} chars  ~{estimate_tokens(str(chars)):5,} tokens")
+        print(
+            f"  {name:40s} {chars:6,} chars  ~{estimate_tokens(str(chars)):5,} tokens"
+        )
 
     print()
     print("-" * 70)
-    print(f"  {'TOTAL PROMPT':40s} {len(full_prompt):6,} chars  ~{estimate_tokens(full_prompt):5,} tokens")
+    print(
+        f"  {'TOTAL PROMPT':40s} {len(full_prompt):6,} chars  ~{estimate_tokens(full_prompt):5,} tokens"
+    )
     print()
 
     # Compare with original
     original_prompt_chars = 2200  # Original system prompt
-    original_code_limit = 15000   # Original code limit
+    original_code_limit = 15000  # Original code limit
     original_est_tokens = (original_prompt_chars + original_code_limit) // 3
 
     current_prompt_chars = len(prompt_template)
-    current_code_limit = 8000     # New code limit
+    current_code_limit = 8000  # New code limit
     current_est_tokens = (current_prompt_chars + current_code_limit) // 3
 
     savings_chars = original_est_tokens - current_est_tokens

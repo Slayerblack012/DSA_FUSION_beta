@@ -7,11 +7,11 @@ from app.models.models import Base, User, GradingHistory, RunResult, Rubric, Man
 from app.services.repository import GradingRepository
 
 __all__ = [
-    "Base", 
-    "User", 
-    "GradingHistory", 
-    "RunResult", 
-    "Rubric", 
-    "ManualGrade", 
-    "GradingRepository"
+    "Base",
+    "User",
+    "GradingHistory",
+    "RunResult",
+    "Rubric",
+    "ManualGrade",
+    "GradingRepository",
 ]

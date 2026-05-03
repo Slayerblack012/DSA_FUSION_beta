@@ -29,10 +29,19 @@ _BREAKDOWN_MAPPING = {
     "tests": "Testing (Dynamic Tests)",
     "dsa": "Data Structures & Algorithms",
     "pep8": "Code Style (PEP8)",
-    "complexity": "Optimization (Complexity)"
+    "complexity": "Optimization (Complexity)",
 }
 
-_IMPROVEMENT_KEYWORDS = ["should", "consider", "need", "optimize", "style", "naming", "blank line", "avoid"]
+_IMPROVEMENT_KEYWORDS = [
+    "should",
+    "consider",
+    "need",
+    "optimize",
+    "style",
+    "naming",
+    "blank line",
+    "avoid",
+]
 
 _COMPONENT_MAX = {
     "tests": 4.0,
@@ -55,10 +64,34 @@ _RUBRIC_LOW_CONFIDENCE_FALLBACK = True
 
 _RUBRIC_COMPONENT_KEYWORDS = {
     "tests": ["test", "kiểm thử", "case", "correct", "đúng", "chính xác", "output"],
-    "dsa": ["algorithm", "thuật toán", "dsa", "data structure", "cấu trúc dữ liệu", "logic"],
-    "pep8": ["style", "pep8", "format", "readability", "naming", "coding convention", "trình bày"],
-    "complexity": ["complexity", "big o", "optimization", "hiệu năng", "tối ưu", "time", "memory"],
+    "dsa": [
+        "algorithm",
+        "thuật toán",
+        "dsa",
+        "data structure",
+        "cấu trúc dữ liệu",
+        "logic",
+    ],
+    "pep8": [
+        "style",
+        "pep8",
+        "format",
+        "readability",
+        "naming",
+        "coding convention",
+        "trình bày",
+    ],
+    "complexity": [
+        "complexity",
+        "big o",
+        "optimization",
+        "hiệu năng",
+        "tối ưu",
+        "time",
+        "memory",
+    ],
 }
+
 
 class GradingService:
     """
@@ -105,10 +138,16 @@ class GradingService:
         start = time.time()
         logger.info(
             "Grading %d file(s) | Student: %s (%s) | Topic: %s",
-            len(files), student_name, student_id or "N/A", topic or "Auto",
+            len(files),
+            student_name,
+            student_id or "N/A",
+            topic or "Auto",
         )
 
-        if not hasattr(self, "_baitap_cache") or time.time() - getattr(self, "_baitap_cache_time", 0) > 300:
+        if (
+            not hasattr(self, "_baitap_cache")
+            or time.time() - getattr(self, "_baitap_cache_time", 0) > 300
+        ):
             self._baitap_cache = self._load_baitap_dataset()
             self._baitap_cache_time = time.time()
         baitap_dataset = self._baitap_cache
@@ -135,7 +174,7 @@ class GradingService:
                 except Exception as exc:
                     logger.error("Failed to grade %s: %s", fname, exc)
                     res = self._error_result(fname, str(exc))
-                
+
                 res.student_name = student_name
                 res.student_id = student_id
 
@@ -144,8 +183,13 @@ class GradingService:
                 nonlocal completed_count
                 completed_count += 1
                 update_interval = 1 if total_files < 20 else 5
-                if job_id and self._job_store and (
-                    completed_count % update_interval == 0 or completed_count == total_files
+                if (
+                    job_id
+                    and self._job_store
+                    and (
+                        completed_count % update_interval == 0
+                        or completed_count == total_files
+                    )
                 ):
                     try:
                         job_data = await self._job_store.get(job_id)
@@ -153,7 +197,7 @@ class GradingService:
                             job_data["progress"] = {
                                 "current": completed_count,
                                 "total": total_files,
-                                "percent": int((completed_count / total_files) * 100)
+                                "percent": int((completed_count / total_files) * 100),
                             }
                             await self._job_store.set(job_id, job_data)
                     except Exception as exc:
@@ -190,30 +234,35 @@ class GradingService:
         if self._event_bus:
             try:
                 from app.core.models import Event, EventType
-                await self._event_bus.publish(Event(
-                    type=EventType.JOB_COMPLETED,
-                    payload={
-                        "job_id": job_id,
-                        "student_name": student_name,
-                        "student_id": student_id,
-                        "topic": topic,
-                        "assignment_code": assignment_code,
-                        "summary": summary,
-                    },
-                    source="grading_service",
-                    timestamp=time.time(),
-                ))
-                if plagiarism_alerts:
-                    await self._event_bus.publish(Event(
-                        type=EventType.PLAGIARISM_DETECTED,
+
+                await self._event_bus.publish(
+                    Event(
+                        type=EventType.JOB_COMPLETED,
                         payload={
                             "job_id": job_id,
                             "student_name": student_name,
-                            "alerts": plagiarism_alerts,
+                            "student_id": student_id,
+                            "topic": topic,
+                            "assignment_code": assignment_code,
+                            "summary": summary,
                         },
                         source="grading_service",
                         timestamp=time.time(),
-                    ))
+                    )
+                )
+                if plagiarism_alerts:
+                    await self._event_bus.publish(
+                        Event(
+                            type=EventType.PLAGIARISM_DETECTED,
+                            payload={
+                                "job_id": job_id,
+                                "student_name": student_name,
+                                "alerts": plagiarism_alerts,
+                            },
+                            source="grading_service",
+                            timestamp=time.time(),
+                        )
+                    )
             except Exception as exc:
                 logger.warning("Event bus publish failed (non-critical): %s", exc)
 
@@ -230,7 +279,7 @@ class GradingService:
         student_name: str,
         student_id: Optional[str],
         topic: str,
-        assignment_code: Optional[str]
+        assignment_code: Optional[str],
     ) -> int:
         """Save all grading results to database."""
         if not self._repository or not results:
@@ -257,7 +306,9 @@ class GradingService:
             dicts_to_save.append(d)
 
         try:
-            saved_ids = self._repository.save_batch_results(dicts_to_save, assignment_code)
+            saved_ids = self._repository.save_batch_results(
+                dicts_to_save, assignment_code
+            )
             logger.info("[SUCCESS] Saved %d submissions to database", len(saved_ids))
             return len(saved_ids)
         except Exception as e:
@@ -269,8 +320,11 @@ class GradingService:
                     self._repository.save_result(result_dict)
                     saved_count += 1
                 except Exception as e2:
-                    logger.error("[ERROR] Failed to save individual submission (%s): %s",
-                                 result_dict.get("filename", "?"), e2)
+                    logger.error(
+                        "[ERROR] Failed to save individual submission (%s): %s",
+                        result_dict.get("filename", "?"),
+                        e2,
+                    )
             return saved_count
 
     async def grade_single_file(
@@ -287,6 +341,7 @@ class GradingService:
         # Step 1 — AST analysis (always runs)
         try:
             from starlette.concurrency import run_in_threadpool
+
             ast_result = await run_in_threadpool(
                 self._ast.grade_file_ultra_fast, code, filename, topic
             )
@@ -297,7 +352,9 @@ class GradingService:
         # Parse algorithms from AST result
         raw_algorithms = ast_result.get("algorithms", [])
         if isinstance(raw_algorithms, str):
-            detected_algorithms = [a.strip() for a in raw_algorithms.split(",") if a.strip()]
+            detected_algorithms = [
+                a.strip() for a in raw_algorithms.split(",") if a.strip()
+            ]
         else:
             detected_algorithms = list(raw_algorithms) if raw_algorithms else []
 
@@ -315,9 +372,10 @@ class GradingService:
         # Load rubric criteria from DB
         if selected_rubric_profile and selected_rubric_profile.get("criteria"):
             matched_assignment_code = (
-                ((selected_rubric_profile.get("matched_exercise") or {}).get("assignment_code"))
-                or selected_rubric_profile.get("assignment_code")
-            )
+                (selected_rubric_profile.get("matched_exercise") or {}).get(
+                    "assignment_code"
+                )
+            ) or selected_rubric_profile.get("assignment_code")
 
             exact_rows = []
             if matched_assignment_code and self._repository:
@@ -329,7 +387,11 @@ class GradingService:
                         split_packed_criteria=True,
                     )
                 except Exception as exc:
-                    logger.warning("Cannot load exact BAITAP criteria for %s: %s", matched_assignment_code, exc)
+                    logger.warning(
+                        "Cannot load exact BAITAP criteria for %s: %s",
+                        matched_assignment_code,
+                        exc,
+                    )
 
             if exact_rows:
                 rubric_criteria = exact_rows
@@ -339,8 +401,12 @@ class GradingService:
                         "name": item.get("name") or item.get("criteria_name") or "",
                         "description": item.get("description") or "",
                         "max_score": float(item.get("max_score") or 0),
-                        "source_text": item.get("source_text") or item.get("name") or "",
-                        "criteria_code": item.get("criteria_code") or item.get("criterion_code") or "",
+                        "source_text": item.get("source_text")
+                        or item.get("name")
+                        or "",
+                        "criteria_code": item.get("criteria_code")
+                        or item.get("criterion_code")
+                        or "",
                     }
                     for item in (selected_rubric_profile.get("criteria") or [])
                     if isinstance(item, dict)
@@ -357,7 +423,9 @@ class GradingService:
         )
 
         if selected_rubric_profile:
-            matching_result.matched_exercise = selected_rubric_profile.get("matched_exercise")
+            matching_result.matched_exercise = selected_rubric_profile.get(
+                "matched_exercise"
+            )
             matching_result.match_proof = selected_rubric_profile.get("match_proof")
 
         # Compute per-criterion scores
@@ -391,12 +459,16 @@ class GradingService:
                     ast_report=ast_result,
                     rubric_context=rubric_profile,
                 )
-                merged = self._combine(ast_result, ai_result, code, rubric_profile=rubric_profile)
+                merged = self._combine(
+                    ast_result, ai_result, code, rubric_profile=rubric_profile
+                )
                 return self._apply_rubric_to_result(merged, rubric_profile)
             except Exception as exc:
                 logger.warning("AI grading failed, falling back to AST: %s", exc)
 
-        ast_only = self._ast_to_result(ast_result, filename, code, rubric_profile=rubric_profile)
+        ast_only = self._ast_to_result(
+            ast_result, filename, code, rubric_profile=rubric_profile
+        )
         return self._apply_rubric_to_result(ast_only, rubric_profile)
 
     async def _grade_single_file_ai_only(
@@ -431,7 +503,9 @@ class GradingService:
         logger.info("Checking plagiarism for %d results.", len(results))
 
         intra = await self._plagiarism.check_intra_job_plagiarism(results)
-        cross = await self._plagiarism.check_cross_job_plagiarism(results, assignment_code)
+        cross = await self._plagiarism.check_cross_job_plagiarism(
+            results, assignment_code
+        )
         alerts = intra + cross
 
         if alerts:
@@ -452,6 +526,7 @@ class GradingService:
             return 0.0
 
         import math
+
         if math.isnan(score) or math.isinf(score):
             return 0.0
 
@@ -510,12 +585,18 @@ class GradingService:
             breakdown=breakdown,
             reasoning="\n".join(ast_result.get("notes", [])),
             complexity=ast_result.get("complexity", "O(n)"),
-            complexity_analysis=next((n for n in ast_result.get("notes", []) if "Hiệu năng:" in n), None),
-            fingerprint="|".join(map(str, ast_result.get("fingerprint", []))) if isinstance(ast_result.get("fingerprint"), list) else None,
+            complexity_analysis=next(
+                (n for n in ast_result.get("notes", []) if "Hiệu năng:" in n), None
+            ),
+            fingerprint="|".join(map(str, ast_result.get("fingerprint", [])))
+            if isinstance(ast_result.get("fingerprint"), list)
+            else None,
             code=code,
             language="python",
             test_results=test_results,
-            complexity_curve=self._generate_complexity_curve(ast_result.get("complexity", "O(n)")),
+            complexity_curve=self._generate_complexity_curve(
+                ast_result.get("complexity", "O(n)")
+            ),
             criteria_scores=criteria_scores,
             score_proof={
                 "mode": "ast_only",
@@ -531,7 +612,9 @@ class GradingService:
 
         # Apply rubric adjustment if criteria scores are available
         if criteria_scores and rubric_profile:
-            self._apply_criteria_scores_to_result(result, criteria_scores, rubric_profile)
+            self._apply_criteria_scores_to_result(
+                result, criteria_scores, rubric_profile
+            )
 
         return result
 
@@ -555,22 +638,26 @@ class GradingService:
             earned = float(cs.get("earned", 0))
             earned = max(0.0, min(earned, max_s if max_s > 0 else earned))
             total_points += earned
-            criteria_results.append({
-                "name": criterion_name,
-                "source_text": cs.get("source_text", criterion_name),
-                "criteria_code": cs.get("criteria_code") or "",
-                "earned": round(earned, 2),
-                "max": round(max_s, 2),
-                "feedback": cs.get("feedback", ""),
-                "evidence": cs.get("evidence", ""),
-            })
+            criteria_results.append(
+                {
+                    "name": criterion_name,
+                    "source_text": cs.get("source_text", criterion_name),
+                    "criteria_code": cs.get("criteria_code") or "",
+                    "earned": round(earned, 2),
+                    "max": round(max_s, 2),
+                    "feedback": cs.get("feedback", ""),
+                    "evidence": cs.get("evidence", ""),
+                }
+            )
 
         if total_weight <= 0 and criteria_results:
             total_weight = sum(float(item.get("max") or 0) for item in criteria_results)
 
         before_rubric = result.total_score
         if total_weight > 0:
-            result.total_score = round(min(max((total_points / total_weight) * 10.0, 0.0), 10.0), 1)
+            result.total_score = round(
+                min(max((total_points / total_weight) * 10.0, 0.0), 10.0), 1
+            )
         result.status = "AC" if result.total_score >= 5.0 else "WA"
         result.has_rubric = True
 
@@ -602,7 +689,7 @@ class GradingService:
                     "tests": "Kiểm thử (Dynamic Tests)",
                     "dsa": "Cấu trúc dữ liệu & Thuật toán",
                     "pep8": "Phong cách lập trình (PEP8)",
-                    "complexity": "Tối ưu hóa (Complexity)"
+                    "complexity": "Tối ưu hóa (Complexity)",
                 }
                 lines.append(f"- **{labels_vn.get(cat, label)}**: {val} điểm")
 
@@ -635,18 +722,24 @@ class GradingService:
                     lines.append(f"- {n}")
             elif score >= 9.0:
                 lines.append("\n### Gợi ý cải thiện:")
-                lines.append("- Mã nguồn của em rất tốt. Hãy thử thách với các bộ dữ liệu lớn hơn hoặc tối ưu bộ nhớ.")
+                lines.append(
+                    "- Mã nguồn của em rất tốt. Hãy thử thách với các bộ dữ liệu lớn hơn hoặc tối ưu bộ nhớ."
+                )
 
         if score >= 8.0:
             lines.append("\n**XUẤT SẮC!** Mã nguồn của em rất chất lượng.")
         elif score >= 5.0:
             lines.append("\n**ĐẠT YÊU CẦU.** Em có thể tối ưu thêm mã nguồn của mình.")
         else:
-            lines.append("\n**CẦN CỐ GẮNG.** Hãy xem các nhận xét bên trên để cải thiện bài làm.")
+            lines.append(
+                "\n**CẦN CỐ GẮNG.** Hãy xem các nhận xét bên trên để cải thiện bài làm."
+            )
 
         return "\n".join(lines)
 
-    def _load_rubric_profile(self, assignment_code: Optional[str], topic: str) -> Optional[Dict[str, Any]]:
+    def _load_rubric_profile(
+        self, assignment_code: Optional[str], topic: str
+    ) -> Optional[Dict[str, Any]]:
         """Load rubric criteria from DB and prepare a profile for runtime scoring."""
         if not self._repository:
             return None
@@ -678,7 +771,9 @@ class GradingService:
                 component_hint = (item.get("component") or "").strip().lower()
 
                 if component_hint:
-                    components = self._map_rubric_components(component_hint, description)
+                    components = self._map_rubric_components(
+                        component_hint, description
+                    )
                 else:
                     components = self._map_rubric_components(name, description)
 
@@ -687,7 +782,9 @@ class GradingService:
                     {
                         "name": name,
                         "source_text": name,
-                        "criteria_code": item.get("criteria_code") or item.get("criterion_code") or "",
+                        "criteria_code": item.get("criteria_code")
+                        or item.get("criterion_code")
+                        or "",
                         "description": description,
                         "max_score": max_score,
                         "components": components,
@@ -705,7 +802,9 @@ class GradingService:
 
         return None
 
-    def _load_rubric_criteria(self, assignment_code: Optional[str], topic: str) -> List[Dict[str, Any]]:
+    def _load_rubric_criteria(
+        self, assignment_code: Optional[str], topic: str
+    ) -> List[Dict[str, Any]]:
         """Load rubric criteria from DB as a flat list for criteria matching."""
         if not self._repository:
             return []
@@ -738,13 +837,15 @@ class GradingService:
         for cs in criteria_scores:
             max_s = cs.get("max", 10.0)
             total_max += max_s
-            criteria.append({
-                "name": cs["criterion"],
-                "source_text": cs.get("source_text", cs["criterion"]),
-                "criteria_code": cs.get("criteria_code") or "",
-                "description": "",
-                "max_score": max_s,
-            })
+            criteria.append(
+                {
+                    "name": cs["criterion"],
+                    "source_text": cs.get("source_text", cs["criterion"]),
+                    "criteria_code": cs.get("criteria_code") or "",
+                    "description": "",
+                    "max_score": max_s,
+                }
+            )
 
         return {
             "source": "criteria_matcher",
@@ -758,7 +859,9 @@ class GradingService:
         }
 
     @staticmethod
-    def _build_rubric_snapshot(rubric_profile: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def _build_rubric_snapshot(
+        rubric_profile: Optional[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
         if not rubric_profile:
             return None
 
@@ -766,14 +869,21 @@ class GradingService:
         for item in rubric_profile.get("criteria", []) or []:
             if not isinstance(item, dict):
                 continue
-            criteria.append({
-                "name": item.get("name") or item.get("criteria_name") or "",
-                "source_text": item.get("source_text") or item.get("name") or item.get("criteria_name") or "",
-                "criteria_code": item.get("criteria_code") or item.get("criterion_code") or "",
-                "description": item.get("description") or "",
-                "max_score": item.get("max_score") or 0,
-                "components": item.get("components") or [],
-            })
+            criteria.append(
+                {
+                    "name": item.get("name") or item.get("criteria_name") or "",
+                    "source_text": item.get("source_text")
+                    or item.get("name")
+                    or item.get("criteria_name")
+                    or "",
+                    "criteria_code": item.get("criteria_code")
+                    or item.get("criterion_code")
+                    or "",
+                    "description": item.get("description") or "",
+                    "max_score": item.get("max_score") or 0,
+                    "components": item.get("components") or [],
+                }
+            )
 
         return {
             "source": rubric_profile.get("source", "database"),
@@ -811,7 +921,9 @@ class GradingService:
         normalized = GradingService._normalize_text(value)
         return [t for t in re.split(r"[^a-z0-9_]+", normalized) if len(t) >= 2]
 
-    def _build_profile_from_exercise(self, exercise: Dict[str, Any], topic: str) -> Optional[Dict[str, Any]]:
+    def _build_profile_from_exercise(
+        self, exercise: Dict[str, Any], topic: str
+    ) -> Optional[Dict[str, Any]]:
         criteria_items = exercise.get("criteria") or []
         if not criteria_items:
             return None
@@ -822,14 +934,21 @@ class GradingService:
 
         for item in criteria_items:
             if isinstance(item, dict):
-                name = str(item.get("name") or item.get("criteria_name") or item.get("description") or "").strip()
-                desc = str(item.get("description") or item.get("requirement") or "").strip()
+                name = str(
+                    item.get("name")
+                    or item.get("criteria_name")
+                    or item.get("description")
+                    or ""
+                ).strip()
+                desc = str(
+                    item.get("description") or item.get("requirement") or ""
+                ).strip()
                 item_max = float(item.get("max_score") or max_per_item)
             else:
                 name = str(item).strip()
                 desc = ""
                 item_max = max_per_item
-            
+
             if not name:
                 continue
 
@@ -837,7 +956,7 @@ class GradingService:
                 {
                     "name": name,
                     "source_text": name,
-                    "criteria_code": f"{exercise.get('assignment_code')}_C{len(criteria)+1}",
+                    "criteria_code": f"{exercise.get('assignment_code')}_C{len(criteria) + 1}",
                     "description": desc,
                     "max_score": item_max,
                     "components": self._map_rubric_components(
@@ -914,7 +1033,9 @@ class GradingService:
             ast_result.get("complexity", ""),
             code[:2000],
         ]
-        sub_terms = set(self._tokenize_text(" ".join(str(x) for x in sub_text_parts if x)))
+        sub_terms = set(
+            self._tokenize_text(" ".join(str(x) for x in sub_text_parts if x))
+        )
         complexity_hint = self._normalize_text(ast_result.get("complexity", ""))
 
         scored: List[Dict[str, Any]] = []
@@ -957,14 +1078,19 @@ class GradingService:
         second = scored[1] if len(scored) > 1 else {"score": 0.0}
         margin = float(best["score"]) - float(second["score"])
 
-        low_confidence = float(best["score"]) < _RUBRIC_MATCH_MIN_SCORE or margin < _RUBRIC_MATCH_MIN_MARGIN
+        low_confidence = (
+            float(best["score"]) < _RUBRIC_MATCH_MIN_SCORE
+            or margin < _RUBRIC_MATCH_MIN_MARGIN
+        )
         if low_confidence:
             logger.warning(
                 "Rubric auto-match low confidence for %s (best=%.2f, margin=%.2f). %s",
                 filename,
                 float(best["score"]),
                 margin,
-                "Skipping rubric to avoid wrong scoring." if _RUBRIC_LOW_CONFIDENCE_FALLBACK else "Using top candidate anyway.",
+                "Skipping rubric to avoid wrong scoring."
+                if _RUBRIC_LOW_CONFIDENCE_FALLBACK
+                else "Using top candidate anyway.",
             )
             if _RUBRIC_LOW_CONFIDENCE_FALLBACK:
                 return None
@@ -999,7 +1125,9 @@ class GradingService:
 
         return mapped
 
-    def _apply_rubric_to_result(self, result: GradingResult, rubric_profile: Optional[Dict[str, Any]]) -> GradingResult:
+    def _apply_rubric_to_result(
+        self, result: GradingResult, rubric_profile: Optional[Dict[str, Any]]
+    ) -> GradingResult:
         """Sửa lỗi: Hiện tiêu đề, xóa thanh rác 10/10, hiện box bằng chứng."""
         if not rubric_profile:
             return result
@@ -1023,27 +1151,32 @@ class GradingService:
             for i, db_item in enumerate(db_criteria):
                 db_name = db_item.get("name") or db_item.get("criteria_name") or ""
                 db_max = float(db_item.get("max_score") or 2.5)
-                
+
                 matched_ai = None
                 db_norm = self._normalize_text(db_name)
-                
+
                 # Khớp điểm từ AI (Loại bỏ các dòng summary rác)
                 best_match_idx = -1
                 for idx, ai_item in enumerate(ai_raw_scores):
                     if idx in used_ai_indices:
                         continue
                     ai_name = self._normalize_text(ai_item.get("criterion", ""))
-                    if ai_name and ai_name not in ["criterion", "total", "score", "normalized"]:
+                    if ai_name and ai_name not in [
+                        "criterion",
+                        "total",
+                        "score",
+                        "normalized",
+                    ]:
                         if ai_name == db_norm:
                             best_match_idx = idx
                             break
                         elif ai_name in db_norm or db_norm in ai_name:
                             best_match_idx = idx
-                
+
                 if best_match_idx != -1:
                     matched_ai = ai_raw_scores[best_match_idx]
                     used_ai_indices.add(best_match_idx)
-                
+
                 earned = 0.0
                 fb = f"AI chưa cung cấp đánh giá chi tiết cho tiêu chí: {db_name}."
                 ev = "AI thực hiện đánh giá trực tiếp dựa trên nội dung mã nguồn."
@@ -1059,17 +1192,24 @@ class GradingService:
 
                 total_points += earned
                 actual_total_weight += db_max
-                criteria_results.append({
-                    "name": db_name, "earned": round(earned, 2), "max": round(db_max, 2),
-                    "feedback": fb, "evidence": ev,
-                })
+                criteria_results.append(
+                    {
+                        "name": db_name,
+                        "earned": round(earned, 2),
+                        "max": round(db_max, 2),
+                        "feedback": fb,
+                        "evidence": ev,
+                    }
+                )
 
             # 3. CẬP NHẬT ĐIỂM FILE
             if actual_total_weight > 0:
-                result.total_score = round(min((total_points / actual_total_weight) * 10.0, 10.0), 1)
-            
+                result.total_score = round(
+                    min((total_points / actual_total_weight) * 10.0, 10.0), 1
+                )
+
             result.status = "AC" if result.total_score >= 5.0 else "WA"
-            result.criteria_scores = criteria_results 
+            result.criteria_scores = criteria_results
 
             # 4. HIỆN BOX BẰNG CHỨNG: Cấp đúng key criteria_results cho Frontend
             if not isinstance(result.score_proof, dict):
@@ -1078,7 +1218,7 @@ class GradingService:
                 "applied": True,
                 "after": result.total_score,
                 "criteria_results": criteria_results,
-                "matched_exercise": rubric_profile.get("matched_exercise")
+                "matched_exercise": rubric_profile.get("matched_exercise"),
             }
 
             # Gộp text feedback
@@ -1104,7 +1244,11 @@ class GradingService:
         rubric_scores = getattr(ai_result, "criteria_scores", None) or []
 
         # Fallback: if AI didn't provide criteria scores, use pre-computed ones from rubric_profile
-        if not rubric_scores and rubric_profile and rubric_profile.get("criteria_scores_computed"):
+        if (
+            not rubric_scores
+            and rubric_profile
+            and rubric_profile.get("criteria_scores_computed")
+        ):
             rubric_scores = rubric_profile["criteria_scores_computed"]
 
         if rubric_scores:
@@ -1126,14 +1270,20 @@ class GradingService:
                 if max_score <= 0:
                     continue
                 earned = max(0.0, min(earned, max_score))
-                raw_scores.append({
-                    "criterion": criterion,
-                    "earned": round(earned, 2),
-                    "max": round(max_score, 2),
-                    "criteria_code": str(item.get("criteria_code") or item.get("criterion_code") or "").strip(),
-                    "feedback": str(item.get("feedback") or "").strip(),
-                    "evidence": str(item.get("evidence") or "").strip(),
-                })
+                raw_scores.append(
+                    {
+                        "criterion": criterion,
+                        "earned": round(earned, 2),
+                        "max": round(max_score, 2),
+                        "criteria_code": str(
+                            item.get("criteria_code")
+                            or item.get("criterion_code")
+                            or ""
+                        ).strip(),
+                        "feedback": str(item.get("feedback") or "").strip(),
+                        "evidence": str(item.get("evidence") or "").strip(),
+                    }
+                )
 
             cleaned_scores = []
             total_points = 0.0
@@ -1150,7 +1300,9 @@ class GradingService:
                     for idx, ai_item in enumerate(raw_scores):
                         if idx in used_indexes:
                             continue
-                        ai_key = GradingService._normalize_text(ai_item.get("criterion") or "")
+                        ai_key = GradingService._normalize_text(
+                            ai_item.get("criterion") or ""
+                        )
                         if not ai_key:
                             continue
                         rank = -1
@@ -1186,15 +1338,24 @@ class GradingService:
                     if matched_idx is not None:
                         used_indexes.add(matched_idx)
                         matched_item = raw_scores[matched_idx]
-                        earned = max(0.0, min(float(matched_item.get("earned") or 0.0), rubric_max))
+                        earned = max(
+                            0.0,
+                            min(float(matched_item.get("earned") or 0.0), rubric_max),
+                        )
                         criteria_code = str(
                             rubric_item.get("criteria_code")
                             or rubric_item.get("criterion_code")
                             or matched_item.get("criteria_code")
                             or ""
                         ).strip()
-                        feedback = matched_item.get("feedback") or "AI đã đối chiếu code theo tiêu chí này."
-                        evidence = matched_item.get("evidence") or "Phân tích chuyên sâu từ AI dựa trên cấu trúc mã."
+                        feedback = (
+                            matched_item.get("feedback")
+                            or "AI đã đối chiếu code theo tiêu chí này."
+                        )
+                        evidence = (
+                            matched_item.get("evidence")
+                            or "Phân tích chuyên sâu từ AI dựa trên cấu trúc mã."
+                        )
                     else:
                         earned = 0.0
                         criteria_code = str(
@@ -1207,14 +1368,16 @@ class GradingService:
 
                     total_points += earned
                     total_max += rubric_max
-                    cleaned_scores.append({
-                        "criterion": rubric_name,
-                        "earned": round(earned, 2),
-                        "max": round(rubric_max, 2),
-                        "criteria_code": criteria_code,
-                        "feedback": str(feedback).strip(),
-                        "evidence": str(evidence).strip(),
-                    })
+                    cleaned_scores.append(
+                        {
+                            "criterion": rubric_name,
+                            "earned": round(earned, 2),
+                            "max": round(rubric_max, 2),
+                            "criteria_code": criteria_code,
+                            "feedback": str(feedback).strip(),
+                            "evidence": str(evidence).strip(),
+                        }
+                    )
             else:
                 for item in raw_scores:
                     earned = float(item.get("earned") or 0.0)
@@ -1224,17 +1387,25 @@ class GradingService:
                     cleaned_scores.append(item)
 
             feedback_text = (ai_result.feedback or "").strip()
-            fallback_like = "ai tạm thời không khả dụng" in feedback_text.lower() or "ước tính dự phòng" in feedback_text.lower()
+            fallback_like = (
+                "ai tạm thời không khả dụng" in feedback_text.lower()
+                or "ước tính dự phòng" in feedback_text.lower()
+            )
             if (not feedback_text or fallback_like) and cleaned_scores:
                 lines = ["### Phân tích theo tiêu chí"]
                 for item in cleaned_scores:
-                    detail = item.get("feedback") or "Đánh giá chuyên sâu từ trí tuệ nhân tạo."
+                    detail = (
+                        item.get("feedback")
+                        or "Đánh giá chuyên sâu từ trí tuệ nhân tạo."
+                    )
                     lines.append(
                         f"- {item['criterion']}: {item['earned']:.2f}/{item['max']:.2f} — {detail}"
                     )
                 feedback_text = "\n".join(lines)
 
-            final = GradingService._normalize_score_10((total_points / total_max) * 10.0 if total_max > 0 else ai_score)
+            final = GradingService._normalize_score_10(
+                (total_points / total_max) * 10.0 if total_max > 0 else ai_score
+            )
             final_status = "AC" if final >= 5.0 else "WA"
 
             ast_breakdown = ast_result.get("breakdown", {})
@@ -1255,8 +1426,18 @@ class GradingService:
                 "mode": "ai_rubric",
                 "policy_version": _SCORING_POLICY_VERSION,
                 "formula": "final = sum(criteria earned) / sum(criteria max) * 10",
-                "weights": {"ai": 1.0, "ast": 0.0, "algorithm": 0.0, "constraints": 0.0},
-                "effective_weights": {"ai": 1.0, "ast": 0.0, "algorithm": 0.0, "constraints": 0.0},
+                "weights": {
+                    "ai": 1.0,
+                    "ast": 0.0,
+                    "algorithm": 0.0,
+                    "constraints": 0.0,
+                },
+                "effective_weights": {
+                    "ai": 1.0,
+                    "ast": 0.0,
+                    "algorithm": 0.0,
+                    "constraints": 0.0,
+                },
                 "components": {
                     "ai_score": ai_score,
                     "ast_score": ast_score,
@@ -1289,7 +1470,9 @@ class GradingService:
                 improvement=ai_result.improvement,
                 complexity=ast_result.get("complexity", "O(n)"),
                 complexity_analysis=ai_result.complexity_analysis,
-                complexity_curve=GradingService._generate_complexity_curve(ast_result.get("complexity", "O(n)")),
+                complexity_curve=GradingService._generate_complexity_curve(
+                    ast_result.get("complexity", "O(n)")
+                ),
                 optimized_code=ai_result.optimized_code,
                 code=code,
                 language="python",
@@ -1306,17 +1489,27 @@ class GradingService:
         test_results = ast_result.get("test_results", []) or []
         if test_results:
             passed = sum(1 for t in test_results if t.get("passed"))
-            constraints_score = GradingService._normalize_score_10((passed / len(test_results)) * 10.0)
+            constraints_score = GradingService._normalize_score_10(
+                (passed / len(test_results)) * 10.0
+            )
         else:
             # Fallback when dynamic tests are unavailable: use test component in AST breakdown.
             tests_raw = float(ast_breakdown.get("tests", 0) or 0)
-            constraints_score = GradingService._normalize_score_10((tests_raw / 4.0) * 10.0)
+            constraints_score = GradingService._normalize_score_10(
+                (tests_raw / 4.0) * 10.0
+            )
 
         # In Full Authority Mode (_WEIGHT_AI=1.0), we skip confidence-based weight reduction
-        confidence = 1.0 if _WEIGHT_AI >= 1.0 else GradingService._compute_ai_confidence(ai_result, ast_score, ai_score)
+        confidence = (
+            1.0
+            if _WEIGHT_AI >= 1.0
+            else GradingService._compute_ai_confidence(ai_result, ast_score, ai_score)
+        )
         effective_ai_weight = round(_WEIGHT_AI * confidence, 4)
         fixed_other_weights = _WEIGHT_ALGORITHM + _WEIGHT_CONSTRAINT
-        effective_ast_weight = round(max(0.0, 1.0 - fixed_other_weights - effective_ai_weight), 4)
+        effective_ast_weight = round(
+            max(0.0, 1.0 - fixed_other_weights - effective_ai_weight), 4
+        )
 
         weighted = (
             effective_ai_weight * ai_score
@@ -1372,9 +1565,7 @@ class GradingService:
 
         # Also pass through criteria_scores from rubric_profile if AI didn't provide them
         final_criteria_scores = rubric_scores or (
-            rubric_profile.get("criteria_scores_computed")
-            if rubric_profile
-            else None
+            rubric_profile.get("criteria_scores_computed") if rubric_profile else None
         )
 
         return GradingResult(
@@ -1394,7 +1585,9 @@ class GradingService:
             improvement=ai_result.improvement,
             complexity=ast_result.get("complexity", "O(n)"),
             complexity_analysis=ai_result.complexity_analysis,
-            complexity_curve=GradingService._generate_complexity_curve(ast_result.get("complexity", "O(n)")),
+            complexity_curve=GradingService._generate_complexity_curve(
+                ast_result.get("complexity", "O(n)")
+            ),
             optimized_code=ai_result.optimized_code,
             code=code,
             language="python",
@@ -1405,7 +1598,9 @@ class GradingService:
         )
 
     @staticmethod
-    def _compute_ai_confidence(ai_result: GradingResult, ast_score: float, ai_score: float) -> float:
+    def _compute_ai_confidence(
+        ai_result: GradingResult, ast_score: float, ai_score: float
+    ) -> float:
         """Estimate AI confidence [0..1] using trace quality and score consistency.
 
         Confidence drives the effective AI weight in hybrid scoring:
@@ -1526,9 +1721,10 @@ class GradingService:
     def _generate_complexity_curve(complexity_str: str) -> List[Dict[str, Any]]:
         """Generate dummy data points for visual complexity chart."""
         import math
+
         points = []
         n_values = [10, 20, 50, 100, 200, 500, 1000]
-        
+
         # Determine actual curve type
         is_n2 = "n^2" in complexity_str or "square" in complexity_str.lower()
         is_n3 = "n^3" in complexity_str
@@ -1538,22 +1734,24 @@ class GradingService:
         for n in n_values:
             # Baseline (Optimal O(n) or O(log n))
             optimal_val = n if not is_logn else math.log2(n) * 10
-            
+
             # Student's val
             if is_n3:
-                student_val = (n ** 3) / 10000 
+                student_val = (n**3) / 10000
             elif is_n2:
-                student_val = (n ** 2) / 100
+                student_val = (n**2) / 100
             elif is_nlogn:
                 student_val = n * math.log2(n) / 5
             elif is_logn:
                 student_val = math.log2(n) * 12
-            else: # O(n) or unknown
-                student_val = n * 1.1 
+            else:  # O(n) or unknown
+                student_val = n * 1.1
 
-            points.append({
-                "n": n,
-                "student": round(student_val, 2),
-                "optimal": round(optimal_val, 2)
-            })
+            points.append(
+                {
+                    "n": n,
+                    "student": round(student_val, 2),
+                    "optimal": round(optimal_val, 2),
+                }
+            )
         return points

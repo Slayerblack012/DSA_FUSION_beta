@@ -144,7 +144,8 @@ def _extract_rar_with_rarfile(
             ]
             if unsafe_members:
                 raise ValueError(
-                    "RAR archive contains unsafe paths: " + ", ".join(unsafe_members[:5])
+                    "RAR archive contains unsafe paths: "
+                    + ", ".join(unsafe_members[:5])
                 )
 
             for member in members:
@@ -296,7 +297,10 @@ def extract_zip_file(zip_data: bytes, filename: str) -> List[Tuple[str, str]]:
 
                     target_path = _safe_join(extract_dir, member_name)
                     os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                    with zf.open(member, "r") as source, open(target_path, "wb") as target:
+                    with (
+                        zf.open(member, "r") as source,
+                        open(target_path, "wb") as target,
+                    ):
                         target.write(source.read())
         except zipfile.BadZipFile:
             raise ValueError("File is not a valid ZIP archive or is corrupted")
@@ -362,5 +366,5 @@ def extract_archive(archive_data: bytes, filename: str) -> List[Tuple[str, str]]
         return extract_zip_file(archive_data, filename)
     else:
         raise ValueError(
-            f"Unsupported archive format: {filename}. " "Supported formats: .rar, .zip"
+            f"Unsupported archive format: {filename}. Supported formats: .rar, .zip"
         )

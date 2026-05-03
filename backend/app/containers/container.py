@@ -12,7 +12,13 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from app.core.config import AI_MODEL_NAME, DB_FILE, GEMINI_API_KEY, REDIS_URL, SQL_SERVER_URL
+from app.core.config import (
+    AI_MODEL_NAME,
+    DB_FILE,
+    GEMINI_API_KEY,
+    REDIS_URL,
+    SQL_SERVER_URL,
+)
 
 logger = logging.getLogger("dsa.container")
 
@@ -20,6 +26,7 @@ logger = logging.getLogger("dsa.container")
 @dataclass
 class ComponentHealth:
     """Health status of a component."""
+
     name: str
     healthy: bool
     message: str = ""
@@ -29,9 +36,10 @@ class ComponentHealth:
 @dataclass
 class ContainerHealth:
     """Overall container health status."""
+
     healthy: bool
     components: Dict[str, ComponentHealth] = field(default_factory=dict)
-    timestamp: float = field(default_factory=lambda: __import__('time').time())
+    timestamp: float = field(default_factory=lambda: __import__("time").time())
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -153,8 +161,10 @@ class Container:
                 healthy=True,
                 message="Database initialized successfully",
             )
-            logger.info("Repository initialized: %s", 
-                       "SQL Server" if self._config["sql_server_url"] else "SQLite")
+            logger.info(
+                "Repository initialized: %s",
+                "SQL Server" if self._config["sql_server_url"] else "SQLite",
+            )
         except Exception as exc:
             logger.error("Repository initialization failed: %s", exc)
             self._health_status["repository"] = ComponentHealth(
@@ -170,13 +180,19 @@ class Container:
             from app.services.job_store import get_job_store
 
             self._job_store = get_job_store()
-            redis_available = self._job_store._use_redis if hasattr(self._job_store, '_use_redis') else False
+            redis_available = (
+                self._job_store._use_redis
+                if hasattr(self._job_store, "_use_redis")
+                else False
+            )
             self._health_status["job_store"] = ComponentHealth(
                 name="job_store",
                 healthy=True,
                 message=f"Job store initialized ({'Redis' if redis_available else 'In-Memory'})",
             )
-            logger.info("Job store initialized: %s", "Redis" if redis_available else "In-Memory")
+            logger.info(
+                "Job store initialized: %s", "Redis" if redis_available else "In-Memory"
+            )
         except Exception as exc:
             logger.error("Job store initialization failed: %s", exc)
             self._health_status["job_store"] = ComponentHealth(
@@ -201,7 +217,9 @@ class Container:
                     )
                     logger.info("Cache initialized: Redis")
                 except Exception as redis_exc:
-                    logger.warning("Redis cache failed (%s), falling back to in-memory.", redis_exc)
+                    logger.warning(
+                        "Redis cache failed (%s), falling back to in-memory.", redis_exc
+                    )
                     from app.cache.in_memory_cache import InMemoryCache
 
                     self._cache = InMemoryCache()
@@ -261,10 +279,13 @@ class Container:
     def _init_ai_providers(self) -> None:
         """Set up the configured Gemini AI provider."""
         try:
+
             def _resolve_model() -> str:
                 model_name = (self._config.get("ai_model_name") or "").strip()
                 lower = model_name.lower()
-                if not model_name or lower.startswith(("llama", "mixtral", "qwen", "gemma")):
+                if not model_name or lower.startswith(
+                    ("llama", "mixtral", "qwen", "gemma")
+                ):
                     return "gemini-2.0-flash"
                 return model_name
 
@@ -289,7 +310,9 @@ class Container:
                 healthy=False,
                 message="No AI provider configured (set GEMINI_API_KEY)",
             )
-            logger.info("AI provider: Not configured (AI-only grading unavailable until GEMINI_API_KEY is set)")
+            logger.info(
+                "AI provider: Not configured (AI-only grading unavailable until GEMINI_API_KEY is set)"
+            )
         except Exception as exc:
             logger.error("AI provider initialization failed: %s", exc)
             self._health_status["ai_provider"] = ComponentHealth(
@@ -337,8 +360,10 @@ class Container:
                 healthy=True,
                 message=f"AI grading service initialized ({'AI enabled' if ai_available else 'Unavailable until AI provider is configured'})",
             )
-            logger.info("AI grading service initialized: %s", 
-                       "AI enabled" if ai_available else "Unavailable")
+            logger.info(
+                "AI grading service initialized: %s",
+                "AI enabled" if ai_available else "Unavailable",
+            )
         except Exception as exc:
             logger.error("AI grading service initialization failed: %s", exc)
             self._health_status["ai_grading"] = ComponentHealth(
@@ -450,7 +475,13 @@ class Container:
         )
 
         # Check if any critical component is unhealthy
-        critical_components = ["repository", "ai_provider", "ai_grading", "plagiarism", "grading"]
+        critical_components = [
+            "repository",
+            "ai_provider",
+            "ai_grading",
+            "plagiarism",
+            "grading",
+        ]
         for name in critical_components:
             if name in health.components and not health.components[name].healthy:
                 health.healthy = False
@@ -492,7 +523,7 @@ class Container:
         # Close cache connection
         if self._cache:
             try:
-                if hasattr(self._cache, 'close'):
+                if hasattr(self._cache, "close"):
                     self._cache.close()
                 logger.info("Cache closed.")
             except Exception as exc:
@@ -502,6 +533,7 @@ class Container:
         if self._event_bus:
             try:
                 import asyncio
+
                 try:
                     loop = asyncio.get_running_loop()
                     # Loop is running — fire-and-forget
@@ -516,8 +548,9 @@ class Container:
         # Close job store
         if self._job_store:
             try:
-                if hasattr(self._job_store, 'close'):
+                if hasattr(self._job_store, "close"):
                     import asyncio
+
                     try:
                         loop = asyncio.get_running_loop()
                         loop.create_task(self._job_store.close())

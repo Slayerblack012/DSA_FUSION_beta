@@ -5,8 +5,10 @@ from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
+
 class User(Base):
     """User model."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
@@ -16,8 +18,10 @@ class User(Base):
     role = Column(String(20), default="STUDENT")
     created_at = Column(DateTime, default=datetime.now)
 
+
 class GradingHistory(Base):
     """Grading history model with optimized indexes."""
+
     __tablename__ = "grading_history"
 
     id = Column(Integer, primary_key=True)
@@ -49,9 +53,9 @@ class GradingHistory(Base):
     rubric_snapshot = Column(Text)
 
     __table_args__ = (
-        Index('idx_student_assignment', 'student_id', 'assignment_code'),
-        Index('idx_assignment_submitted', 'assignment_code', 'submitted_at'),
-        Index('idx_submitted_status', 'submitted_at', 'status'),
+        Index("idx_student_assignment", "student_id", "assignment_code"),
+        Index("idx_assignment_submitted", "assignment_code", "submitted_at"),
+        Index("idx_submitted_status", "submitted_at", "status"),
     )
 
     def to_dict(self):
@@ -67,19 +71,29 @@ class GradingHistory(Base):
             "algorithms": self.algorithms,
             "status": self.status,
             "plagiarism_detected": self.plagiarism_detected,
-            "plagiarism_matches": json.loads(self.plagiarism_matches) if self.plagiarism_matches else [],
-            "submitted_at": self.submitted_at.isoformat() if self.submitted_at else None,
+            "plagiarism_matches": json.loads(self.plagiarism_matches)
+            if self.plagiarism_matches
+            else [],
+            "submitted_at": self.submitted_at.isoformat()
+            if self.submitted_at
+            else None,
             "code": self.code,
             "language": self.language,
-            "final_score": self.final_score if self.final_score is not None else self.total_score,
+            "final_score": self.final_score
+            if self.final_score is not None
+            else self.total_score,
             "needs_review": self.needs_review,
             "reviewer_id": self.reviewer_id,
             "score_proof": json.loads(self.score_proof) if self.score_proof else None,
-            "rubric_snapshot": json.loads(self.rubric_snapshot) if self.rubric_snapshot else None,
+            "rubric_snapshot": json.loads(self.rubric_snapshot)
+            if self.rubric_snapshot
+            else None,
         }
+
 
 class RunResult(Base):
     """Individual test run results for deeper inspection."""
+
     __tablename__ = "run_results"
 
     id = Column(Integer, primary_key=True)
@@ -93,8 +107,10 @@ class RunResult(Base):
     error_message = Column(Text)
     created_at = Column(DateTime, default=datetime.now, index=True)
 
+
 class Rubric(Base):
     """Rubric model for manual grading criteria."""
+
     __tablename__ = "rubrics"
 
     id = Column(Integer, primary_key=True)
@@ -108,8 +124,10 @@ class Rubric(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+
 class ManualGrade(Base):
     """Manual grading records."""
+
     __tablename__ = "manual_grades"
 
     id = Column(Integer, primary_key=True)

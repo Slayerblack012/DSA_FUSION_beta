@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import time
 import asyncio
 from contextlib import asynccontextmanager, suppress
@@ -11,10 +12,16 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.router import router
 from app.api.submissions import router as submissions_router
+
 # from app.api.auth import router as auth_router
 from app.containers.container import get_container, reset_container
-from app.core.config import (CORS_ALLOWED_ORIGINS, ENVIRONMENT, PORT,
-                             check_and_log_config, SETTINGS)
+from app.core.config import (
+    CORS_ALLOWED_ORIGINS,
+    ENVIRONMENT,
+    PORT,
+    check_and_log_config,
+    SETTINGS,
+)
 from app.services.job_store import start_job_cleanup, stop_job_cleanup
 from app.utils.logging_config import setup_logging
 from app.utils.sentry import init_sentry
@@ -22,6 +29,8 @@ from app.utils.auth import hash_password, cleanup_blacklist
 from app.utils.rate_limiter import RateLimitMiddleware
 from app.utils.security_hardening import SecurityMiddleware
 from app.utils.metrics import generate_metrics
+
+sys.dont_write_bytecode = True
 
 # ---------------------------------------------------------------------------
 # Logging & Sentry (module-level, runs once on first import)
@@ -50,12 +59,12 @@ async def lifespan(app: FastAPI):
     logger.info("Initialising DI container...")
     try:
         container = get_container()
-        
+
         # Connect event bus
         event_bus = container.get_event_bus()
         if event_bus:
             await event_bus.connect()
-            
+
         logger.info("Container ready.")
     except Exception as exc:
         logger.error("Container init failed: %s", exc)
@@ -74,22 +83,26 @@ async def lifespan(app: FastAPI):
                 username="122000001",
                 password_hash=hash_password("sv123"),
                 full_name="Student Nguyen Van A",
-                role="STUDENT"
+                role="STUDENT",
             )
     except Exception as exc:
         logger.warning("Seed demo account failed: %s", exc)
 
     # Start periodic auth blacklist cleanup (every 6 hours)
     try:
+
         async def periodic_blacklist_cleanup():
             while True:
                 await asyncio.sleep(6 * 3600)  # Every 6 hours
                 try:
                     cleaned = cleanup_blacklist()
                     if cleaned:
-                        logger.info("Periodic blacklist cleanup: %d entries removed", cleaned)
+                        logger.info(
+                            "Periodic blacklist cleanup: %d entries removed", cleaned
+                        )
                 except Exception:
                     logger.exception("Periodic blacklist cleanup failed")
+
         periodic_cleanup_task = asyncio.create_task(periodic_blacklist_cleanup())
         logger.info("Periodic auth cleanup started (every 6h)")
     except Exception as exc:
@@ -105,7 +118,9 @@ async def lifespan(app: FastAPI):
         yield  # ---- application is running ----
     except asyncio.CancelledError:
         # Ctrl+C / reload can cancel lifespan receive loop on shutdown.
-        logger.info("Lifespan cancelled during shutdown signal; continuing graceful teardown.")
+        logger.info(
+            "Lifespan cancelled during shutdown signal; continuing graceful teardown."
+        )
     finally:
         # Shutdown
         logger.info("Shutting down DSA AutoGrader...")
@@ -219,8 +234,12 @@ async def root_metrics():
 
 # Mount Next.js frontend static build
 # Mount Next.js frontend static build
-frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "out"))
+frontend_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "out")
+)
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 else:
-    logger.warning(f"Frontend static 'out' directory not found at {frontend_path}. Make sure to build the Next.js app using 'npm run build'.")
+    logger.warning(
+        f"Frontend static 'out' directory not found at {frontend_path}. Make sure to build the Next.js app using 'npm run build'."
+    )

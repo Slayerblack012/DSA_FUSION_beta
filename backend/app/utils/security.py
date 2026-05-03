@@ -122,16 +122,19 @@ class ComplexityAnalyzer:
 
         def get_depths(node, current_nesting=0, current_loop_depth=0):
             nonlocal max_nesting, max_loop_depth
-            
-            is_nesting_node = isinstance(node, (ast.If, ast.For, ast.While, ast.Try, ast.FunctionDef, ast.ClassDef))
+
+            is_nesting_node = isinstance(
+                node,
+                (ast.If, ast.For, ast.While, ast.Try, ast.FunctionDef, ast.ClassDef),
+            )
             is_loop_node = isinstance(node, (ast.For, ast.While))
-            
+
             new_nesting = current_nesting + (1 if is_nesting_node else 0)
             new_loop_depth = current_loop_depth + (1 if is_loop_node else 0)
-            
+
             max_nesting = max(max_nesting, new_nesting)
             max_loop_depth = max(max_loop_depth, new_loop_depth)
-            
+
             for child in ast.iter_child_nodes(node):
                 get_depths(child, new_nesting, new_loop_depth)
 
@@ -148,7 +151,7 @@ class ComplexityAnalyzer:
         return {
             "time_complexity": time_complexity,
             "space_complexity": "O(n)",
-            "loop_count": max_loop_depth, # Renamed internally but keeping key for compatibility
+            "loop_count": max_loop_depth,  # Renamed internally but keeping key for compatibility
             "nesting_depth": max_nesting,
         }
 

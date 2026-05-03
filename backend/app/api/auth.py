@@ -57,7 +57,9 @@ async def login(
 
     password_valid = verify_password(password, user["password_hash"])
     if not password_valid:
-        audit_auth_login(username, success=False, ip=client_ip, detail="Invalid password")
+        audit_auth_login(
+            username, success=False, ip=client_ip, detail="Invalid password"
+        )
         logger.warning("Invalid password for user: %s", username)
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
@@ -94,8 +96,16 @@ async def refresh_access_token(
 
     result = refresh_access_token_util(refresh_token_str)
     if not result:
-        audit_auth_login("refresh", success=False, ip=client_ip, detail="Invalid/expired refresh token")
-        raise HTTPException(status_code=401, detail="Refresh token expired or invalid. Please login again.")
+        audit_auth_login(
+            "refresh",
+            success=False,
+            ip=client_ip,
+            detail="Invalid/expired refresh token",
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token expired or invalid. Please login again.",
+        )
 
     new_access, new_refresh = result
     audit_auth_login("refresh", success=True, ip=client_ip, detail="Token refreshed")

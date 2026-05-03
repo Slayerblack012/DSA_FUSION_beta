@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Database, FileUp, RefreshCw, RotateCcw, Settings, Trash2 } from "lucide-react";
 import type { SystemSettings } from "@/types";
 

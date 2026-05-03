@@ -25,6 +25,8 @@ if sys.stdout.encoding != 'utf-8':
         sys.stdout.reconfigure(encoding='utf-8')
     except AttributeError:
         pass
+
+sys.dont_write_bytecode = True
 # ---------------------------------------------------------------------------
 # Graceful shutdown
 # ---------------------------------------------------------------------------
@@ -378,8 +380,10 @@ def _start_frontend_dev(port: int = 3000):
             print(f"  {Colors.red('!!')} npm install failed. Frontend dev server was not started.")
             return None
 
-    stdout_path = os.path.join(frontend_dir, "frontend-main.out.log")
-    stderr_path = os.path.join(frontend_dir, "frontend-main.err.log")
+    logs_dir = os.path.join(frontend_dir, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+    stdout_path = os.path.join(logs_dir, "frontend-main.out.log")
+    stderr_path = os.path.join(logs_dir, "frontend-main.err.log")
     stdout = open(stdout_path, "a", encoding="utf-8", errors="replace")
     stderr = open(stderr_path, "a", encoding="utf-8", errors="replace")
 
@@ -408,7 +412,7 @@ def _start_frontend_dev(port: int = 3000):
         return None
 
     print(f"  {Colors.green('OK')} Frontend dev server starting on http://localhost:{port}")
-    print(f"  {Colors.dim('Logs: frontend/frontend-main.out.log and frontend/frontend-main.err.log')}")
+    print(f"  {Colors.dim('Logs: frontend/logs/frontend-main.out.log and frontend/logs/frontend-main.err.log')}")
     return _frontend_process
 
 

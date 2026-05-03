@@ -24,7 +24,8 @@ _idempotency_lock = asyncio.Lock()
 def _cleanup_idempotency_cache() -> None:
     now = time.time()
     expired = [
-        key for key, value in _idempotency_cache.items()
+        key
+        for key, value in _idempotency_cache.items()
         if now - float(value.get("timestamp", 0)) > _IDEMPOTENCY_TTL_SECONDS
     ]
     for key in expired:
@@ -50,9 +51,11 @@ def _build_idempotency_cache_key(
     digest = hashlib.sha256(str(payload).encode("utf-8")).hexdigest()
     return f"submission:{digest}"
 
+
 # ---------------------------------------------------------------------------
 #  Topic Inference & Response Mapping Helpers
 # ---------------------------------------------------------------------------
+
 
 def _infer_topic(name: str, code: str, available_topics: List[str]) -> str:
     """
@@ -91,80 +94,93 @@ def _infer_topic(name: str, code: str, available_topics: List[str]) -> str:
 
 def _map_to_frontend_format(results: dict, student_id: str) -> dict:
     """
-    Map GradingService business results to the specific JSON format 
+    Map GradingService business results to the specific JSON format
     expected by the Legacy Next.js frontend.
     """
     grading_results = results.get("results", [])
     summary = results.get("summary", {})
-    
+
     file_evaluations = []
     total_time_ms = 0.0
-    
+
     for r in grading_results:
         # Build individual file feedback from AI grading output and optional testcase data
         feedbacks = []
         test_results = r.get("test_results", [])
         full_feedback = r.get("feedback") or r.get("reasoning") or "Mã nguồn hợp lệ"
-        
+
         if test_results:
-            feedbacks.append({
-                "testcase": "AI Review",
-                "status": r.get("status", "AC"),
-                "message": full_feedback,
-                "hint": "",
-                "points": r.get("total_score", 0),
-            })
+            feedbacks.append(
+                {
+                    "testcase": "AI Review",
+                    "status": r.get("status", "AC"),
+                    "message": full_feedback,
+                    "hint": "",
+                    "points": r.get("total_score", 0),
+                }
+            )
 
             for tr in test_results:
-                feedbacks.append({
-                    "testcase": tr.get("testcase", "Test Case"),
-                    "status": "AC" if tr.get("passed") else "WA",
-                    "message": tr.get("message", "N/A"),
-                    "hint": tr.get("hint"),
-                    "points": tr.get("points", 0)
-                })
+                feedbacks.append(
+                    {
+                        "testcase": tr.get("testcase", "Test Case"),
+                        "status": "AC" if tr.get("passed") else "WA",
+                        "message": tr.get("message", "N/A"),
+                        "hint": tr.get("hint"),
+                        "points": tr.get("points", 0),
+                    }
+                )
 
             # Add rubric criteria summary (if available) so frontend can show DB-based scoring details.
             rubric_marker = "### Chấm theo tiêu chí từ cơ sở dữ liệu"
             if rubric_marker in full_feedback:
                 rubric_text = full_feedback.split(rubric_marker, 1)[1].strip()
-                feedbacks.append({
-                    "testcase": "Tiêu chí SQL",
-                    "status": r.get("status", "AC"),
-                    "message": rubric_text,
-                    "hint": "Điểm bên dưới được chuẩn hóa về thang 10 theo trọng số rubric.",
-                    "points": r.get("total_score", 0),
-                })
+                feedbacks.append(
+                    {
+                        "testcase": "Tiêu chí SQL",
+                        "status": r.get("status", "AC"),
+                        "message": rubric_text,
+                        "hint": "Điểm bên dưới được chuẩn hóa về thang 10 theo trọng số rubric.",
+                        "points": r.get("total_score", 0),
+                    }
+                )
         else:
             # AI-only summary when no testcase breakdown is attached
-            feedbacks.append({
-                "testcase": "AI Review",
-                "status": r.get("status", "AC"),
-                "message": full_feedback,
-                "hint": "",
-                "points": r.get("total_score", 0)
-            })
+            feedbacks.append(
+                {
+                    "testcase": "AI Review",
+                    "status": r.get("status", "AC"),
+                    "message": full_feedback,
+                    "hint": "",
+                    "points": r.get("total_score", 0),
+                }
+            )
 
         # Calculate time in milliseconds
         time_ms = float(r.get("time_used", 0) or 0) * 1000
         total_time_ms += time_ms
 
-        file_evaluations.append({
-            "file_name": r.get("filename", "submission.py"),
-            "score": r.get("total_score", 0.0),
-            "status": r.get("status", "AC"),
-            "time_ms": time_ms,
-            "feedbacks": feedbacks,
-            "ai_advice": r.get("feedback") or r.get("reasoning") or r.get("improvement") or "",
-            "improvement": r.get("improvement") or "",
-            "optimized_code": r.get("optimized_code"),
-            "complexity_curve": r.get("complexity_curve", []),
-            "agent_trace": r.get("agent_trace", []),
-            "score_proof": r.get("score_proof"),
-            "criteria_scores": r.get("criteria_scores") or [],
-            "breakdown": r.get("breakdown"),
-            "complexity": r.get("complexity"),
-        })
+        file_evaluations.append(
+            {
+                "file_name": r.get("filename", "submission.py"),
+                "score": r.get("total_score", 0.0),
+                "status": r.get("status", "AC"),
+                "time_ms": time_ms,
+                "feedbacks": feedbacks,
+                "ai_advice": r.get("feedback")
+                or r.get("reasoning")
+                or r.get("improvement")
+                or "",
+                "improvement": r.get("improvement") or "",
+                "optimized_code": r.get("optimized_code"),
+                "complexity_curve": r.get("complexity_curve", []),
+                "agent_trace": r.get("agent_trace", []),
+                "score_proof": r.get("score_proof"),
+                "criteria_scores": r.get("criteria_scores") or [],
+                "breakdown": r.get("breakdown"),
+                "complexity": r.get("complexity"),
+            }
+        )
 
     # Return structured response matching Frontend's ResultRecord type
     avg_score = summary.get("avg_score", 0.0) if summary else 0.0
@@ -174,18 +190,25 @@ def _map_to_frontend_format(results: dict, student_id: str) -> dict:
     return {
         "submission_id": str(uuid.uuid4()),
         "student_id": student_id,
-        "student_name": (grading_results[0].get("student_name") if grading_results else "") or "Sinh viên",
+        "student_name": (
+            grading_results[0].get("student_name") if grading_results else ""
+        )
+        or "Sinh viên",
         "total_score": avg_score,
         "total_time_ms": total_time_ms,
         "status": "AC" if avg_score >= 5 else "WA",
         "file_evaluations": file_evaluations,
-        "overall_ai_summary": results.get("ai_summary", "Hệ thống đã hoàn tất chấm điểm bài làm của bạn.") or "Hệ thống đã hoàn tất chấm điểm bài làm của bạn."
+        "overall_ai_summary": results.get(
+            "ai_summary", "Hệ thống đã hoàn tất chấm điểm bài làm của bạn."
+        )
+        or "Hệ thống đã hoàn tất chấm điểm bài làm của bạn.",
     }
 
 
 # ---------------------------------------------------------------------------
 #  Primary Submission Endpoint
 # ---------------------------------------------------------------------------
+
 
 @router.post("/", summary="Submit assignment for grading")
 async def submit_multi_file(
@@ -198,15 +221,17 @@ async def submit_multi_file(
     idempotency_key: Optional[str] = Form(None),
 ):
     """
-    Submission entry point for students. 
-    Handles file upload, archive extraction, topic auto-detection, 
+    Submission entry point for students.
+    Handles file upload, archive extraction, topic auto-detection,
     and orchestrates the grading pipeline via GradingService.
     """
     # Initialize Core Service via Container
     container = get_container()
     grading_service: GradingService = container.get_grading_service()
 
-    incoming_key = (request.headers.get("Idempotency-Key") or idempotency_key or "").strip()
+    incoming_key = (
+        request.headers.get("Idempotency-Key") or idempotency_key or ""
+    ).strip()
     file_names = [f.filename or "unknown.py" for f in files]
     cache_key: Optional[str] = None
 
@@ -223,9 +248,12 @@ async def submit_multi_file(
             _cleanup_idempotency_cache()
             cached = _idempotency_cache.get(cache_key)
             if cached and isinstance(cached.get("response"), dict):
-                logger.info("Returning cached submission response via idempotency key for student %s", student_id)
+                logger.info(
+                    "Returning cached submission response via idempotency key for student %s",
+                    student_id,
+                )
                 return cached["response"]
-    
+
     py_files_to_grade: List[Tuple[str, str]] = []
 
     # Step 1: Extract and Sanitize Source Files
@@ -233,7 +261,7 @@ async def submit_multi_file(
         for uploaded_file in files:
             content = await uploaded_file.read()
             name = uploaded_file.filename or "unknown.py"
-            
+
             if is_archive_file(name):
                 # Handle ZIP/RAR archives
                 extracted = extract_archive(content, name)
@@ -247,7 +275,7 @@ async def submit_multi_file(
                         break
                     except UnicodeDecodeError:
                         continue
-                
+
                 if code:
                     py_files_to_grade.append((name, code))
     except Exception as exc:
@@ -255,14 +283,21 @@ async def submit_multi_file(
         raise HTTPException(status_code=400, detail=f"Lỗi xử lý tệp: {str(exc)}")
 
     if not py_files_to_grade:
-        raise HTTPException(status_code=400, detail="Không tìm thấy mã nguồn Python (.py) hợp lệ.")
+        raise HTTPException(
+            status_code=400, detail="Không tìm thấy mã nguồn Python (.py) hợp lệ."
+        )
 
     # ------ CẢI TIẾN: GỘP NHIỀU FILE ------
     original_files = list(py_files_to_grade)
     # Gộp tất cả các file thành một project hoàn chỉnh để AI có thể chấm toàn bộ cấu trúc dự án
     # và tránh bị chặn vì Rate Limit (quá nhiều request AI cùng lúc).
     if len(py_files_to_grade) > 1:
-        combined_code = "\n\n".join([f"# {'='*20}\n# TẬP TIN: {name}\n# {'='*20}\n{code}" for name, code in py_files_to_grade])
+        combined_code = "\n\n".join(
+            [
+                f"# {'=' * 20}\n# TẬP TIN: {name}\n# {'=' * 20}\n{code}"
+                for name, code in py_files_to_grade
+            ]
+        )
         # Tóm tắt tên file nếu quá dài để hiển thị trên UI đẹp hơn
         display_name = " | ".join([name for name, _ in py_files_to_grade])
         if len(display_name) > 60:
@@ -273,11 +308,17 @@ async def submit_multi_file(
     batch_topic = (topic or "").strip().lower()
     if not batch_topic:
         available_topics = get_all_topics()
-        inferred_topics = [_infer_topic(fn, fc, available_topics) for fn, fc in py_files_to_grade]
+        inferred_topics = [
+            _infer_topic(fn, fc, available_topics) for fn, fc in py_files_to_grade
+        ]
         batch_topic = next((t for t in inferred_topics if t), "")
 
     final_assignment_code = (assignment_code or "").strip() or None
-    logger.info("Batch submission detected for student %s | Topic: %s", student_id, batch_topic or "Auto")
+    logger.info(
+        "Batch submission detected for student %s | Topic: %s",
+        student_id,
+        batch_topic or "Auto",
+    )
 
     # Step 3: Execute Grading Pipeline
     try:
@@ -301,12 +342,13 @@ async def submit_multi_file(
                 for row in result_rows
             )
             raise HTTPException(status_code=503, detail=detail)
-        
+
         # Manually run intra-job plagiarism check on original separate files
         if len(original_files) > 1:
             try:
                 plagiarism_service = container.get_plagiarism_service()
                 from app.core.models import GradingResult
+
                 dummy_results = [
                     GradingResult(
                         filename=fn,
@@ -317,10 +359,13 @@ async def submit_multi_file(
                         time_used=0.0,
                         memory_used=0.0,
                         code=fc,
-                        fingerprint=plagiarism_service.generate_fingerprint(fc)
-                    ) for fn, fc in original_files
+                        fingerprint=plagiarism_service.generate_fingerprint(fc),
+                    )
+                    for fn, fc in original_files
                 ]
-                intra_alerts = await plagiarism_service.check_intra_job_plagiarism(dummy_results)
+                intra_alerts = await plagiarism_service.check_intra_job_plagiarism(
+                    dummy_results
+                )
                 if intra_alerts:
                     current_alerts = grading_results.get("plagiarism_alerts", [])
                     current_alerts.extend(intra_alerts)
@@ -345,8 +390,12 @@ async def submit_multi_file(
         raise
     except Exception as exc:
         logger.error(f"Grading orchestration service failure: {exc}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Dịch vụ AI chấm bài đang gặp lỗi. Vui lòng kiểm tra cấu hình Gemini hoặc thử lại sau.")
-    
+        raise HTTPException(
+            status_code=500,
+            detail="Dịch vụ AI chấm bài đang gặp lỗi. Vui lòng kiểm tra cấu hình Gemini hoặc thử lại sau.",
+        )
+
+
 @router.get("/assignments/codes")
 async def get_assignment_codes():
     container = get_container()

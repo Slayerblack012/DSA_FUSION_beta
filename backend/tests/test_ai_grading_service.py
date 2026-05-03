@@ -1,11 +1,15 @@
 import unittest
 
 from app.db.repositories.legacy_repository import LegacyRepository
+from app.core.models import GradingResult
+from app.services.ai_only_pipeline import AIOnlyGradingPipeline
 from app.services.ai_grading_service import AIGradingService
 
 
 class AIGradingServiceRubricCoverageTests(unittest.TestCase):
-    def test_enforce_rubric_coverage_adds_missing_criteria_and_recomputes_score(self) -> None:
+    def test_enforce_rubric_coverage_adds_missing_criteria_and_recomputes_score(
+        self,
+    ) -> None:
         response = {
             "normalized_score_10": 9.5,
             "status": "AC",
@@ -50,9 +54,7 @@ class AIGradingServiceRubricCoverageTests(unittest.TestCase):
                 }
             ],
         }
-        rubric_context = {
-            "criteria": [{"name": "Tối ưu độ phức tạp", "max_score": 5}]
-        }
+        rubric_context = {"criteria": [{"name": "Tối ưu độ phức tạp", "max_score": 5}]}
 
         updated = AIGradingService._enforce_rubric_coverage(response, rubric_context)
 
@@ -108,7 +110,9 @@ class AIGradingServiceRubricCoverageTests(unittest.TestCase):
             ]
         }
 
-        result = AIGradingService._parse(response, "bai.py", rubric_context=rubric_context)
+        result = AIGradingService._parse(
+            response, "bai.py", rubric_context=rubric_context
+        )
 
         self.assertIsNotNone(result.criteria_scores)
         self.assertEqual(len(result.criteria_scores), 1)
@@ -125,10 +129,26 @@ class AIGradingServiceRubricCoverageTests(unittest.TestCase):
             "normalized_score_10": 8.0,
             "status": "AC",
             "criteria_scores": [
-                {"criterion": "Xac dinh dung do phuc tap la O(n)", "earned": 25, "max": 25},
-                {"criterion": "Thiet lap duoc so lan lap chinh xac la n/5", "earned": 20, "max": 25},
-                {"criterion": "Giai thich ro quy tac loai bo hang so nhan trong Big O", "earned": 20, "max": 25},
-                {"criterion": "Phan biet duoc su khac nhau giua so lan lap thuc te va bac tang truong thuat toan", "earned": 15, "max": 25},
+                {
+                    "criterion": "Xac dinh dung do phuc tap la O(n)",
+                    "earned": 25,
+                    "max": 25,
+                },
+                {
+                    "criterion": "Thiet lap duoc so lan lap chinh xac la n/5",
+                    "earned": 20,
+                    "max": 25,
+                },
+                {
+                    "criterion": "Giai thich ro quy tac loai bo hang so nhan trong Big O",
+                    "earned": 20,
+                    "max": 25,
+                },
+                {
+                    "criterion": "Phan biet duoc su khac nhau giua so lan lap thuc te va bac tang truong thuat toan",
+                    "earned": 15,
+                    "max": 25,
+                },
             ],
         }
 
@@ -155,6 +175,45 @@ class AIGradingServiceRubricCoverageTests(unittest.TestCase):
         self.assertEqual(len(parts), 4)
         self.assertIn("Xac dinh dung do phuc tap la O(n)", parts[0])
         self.assertIn("(25d)", parts[0])
+
+
+class AIOnlyGradingPipelineTests(unittest.IsolatedAsyncioTestCase):
+    async def test_grade_file_uses_non_strict_mode_for_ai_provider(self) -> None:
+        class DummyAIService:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def grade_with_ai(self, **kwargs):
+                self.calls.append(kwargs)
+                return GradingResult(
+                    filename=kwargs["filename"],
+                    total_score=7.5,
+                    status="AC",
+                    algorithms_detected=["dfs"],
+                    feedback="ok",
+                    time_used=1.0,
+                    memory_used=1.0,
+                )
+
+        dummy_ai = DummyAIService()
+        pipeline = AIOnlyGradingPipeline(
+            ai_service=dummy_ai,
+            resolve_rubric_profile=lambda *args, **kwargs: None,
+            load_rubric_profile=lambda *args, **kwargs: None,
+            apply_rubric=lambda result, rubric: result,
+        )
+
+        result = await pipeline.grade_file(
+            code="print('hi')",
+            filename="main.py",
+            topic="sorting",
+        )
+
+        self.assertEqual(len(dummy_ai.calls), 1)
+        self.assertFalse(dummy_ai.calls[0]["strict_mode"])
+        self.assertEqual(result.filename, "main.py")
+        self.assertEqual(result.language, "python")
+        self.assertEqual(result.code, "print('hi')")
 
 
 if __name__ == "__main__":

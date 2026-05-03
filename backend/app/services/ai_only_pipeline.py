@@ -6,7 +6,10 @@ from app.core.models import GradingResult
 logger = logging.getLogger("dsa.services.ai_only_pipeline")
 
 
-RubricResolver = Callable[[str, str, str, Optional[str], Optional[List[Dict[str, Any]]]], Optional[Dict[str, Any]]]
+RubricResolver = Callable[
+    [str, str, str, Optional[str], Optional[List[Dict[str, Any]]]],
+    Optional[Dict[str, Any]],
+]
 RubricLoader = Callable[[Optional[str], str], Optional[Dict[str, Any]]]
 RubricApplier = Callable[[GradingResult, Optional[Dict[str, Any]]], GradingResult]
 
@@ -54,7 +57,9 @@ class AIOnlyGradingPipeline:
             topic=topic,
             ast_report=None,
             rubric_context=rubric_profile,
-            strict_mode=True,
+            # Keep non-strict mode so AI provider outages degrade gracefully
+            # through AIGradingService._fallback instead of returning hard RE.
+            strict_mode=False,
         )
         ai_result.code = code
         ai_result.language = "python"

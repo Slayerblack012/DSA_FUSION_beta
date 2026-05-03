@@ -5,13 +5,13 @@ interface SubmissionState {
   isSubmitting: boolean;
   jobId: string | null;
   status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | null;
-  result: any;
+  result: unknown;
   setCode: (code: string) => void;
   submitCode: () => Promise<void>;
-  updateStatus: (status: any) => void;
+  updateStatus: (status: SubmissionState['status']) => void;
 }
 
-export const useSubmissionStore = create<SubmissionState>((set, get) => ({
+export const useSubmissionStore = create<SubmissionState>((set) => ({
   code: '',
   isSubmitting: false,
   jobId: null,
@@ -25,7 +25,7 @@ export const useSubmissionStore = create<SubmissionState>((set, get) => ({
       await new Promise(resolve => setTimeout(resolve, 1000));
       set({ jobId: 'job-12345', isSubmitting: false, status: 'RUNNING' });
       // In real implementation, this would connect to SSE/WebSocket listening for status updates
-    } catch (error) {
+    } catch {
       set({ status: 'FAILED', isSubmitting: false });
     }
   },

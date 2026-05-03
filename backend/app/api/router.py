@@ -27,7 +27,9 @@ async def _extract_files_from_upload(uploaded: UploadFile) -> List[Tuple[str, st
     content = await uploaded.read()
 
     if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail=f"File {filename} exceeds 10MB limit")
+        raise HTTPException(
+            status_code=400, detail=f"File {filename} exceeds 10MB limit"
+        )
 
     if is_archive_file(filename):
         try:
@@ -81,8 +83,7 @@ async def grade_submission(
 
     if not all_files_data:
         return JSONResponse(
-            {"error": "No valid Python files (.py) found for grading."},
-            status_code=400
+            {"error": "No valid Python files (.py) found for grading."}, status_code=400
         )
 
     # Normalize student info
@@ -99,7 +100,7 @@ async def grade_submission(
         "student": final_name,
         "student_id": final_id,
         "created_at": time.time(),
-        "progress": {"current": 0, "total": len(all_files_data), "percent": 0}
+        "progress": {"current": 0, "total": len(all_files_data), "percent": 0},
     }
     await job_store.set(job_id, initial_job_data)
 
@@ -116,11 +117,13 @@ async def grade_submission(
 
         # Persist job state
         job_data = await job_store.get(job_id) or {}
-        job_data.update({
-            "status": "completed",
-            "results": results.get("results", []),
-            "summary": results.get("summary", {}),
-        })
+        job_data.update(
+            {
+                "status": "completed",
+                "results": results.get("results", []),
+                "summary": results.get("summary", {}),
+            }
+        )
         await job_store.set(job_id, job_data)
 
         return {
@@ -137,15 +140,17 @@ async def grade_submission(
         return _handle_grading_error(job_id, str(exc))
 
 
-def _normalize_student_info(student_name: str, student_id: Optional[str]) -> Tuple[Optional[str], str]:
+def _normalize_student_info(
+    student_name: str, student_id: Optional[str]
+) -> Tuple[Optional[str], str]:
     """Parse student info from name field if ID not provided."""
     final_id = student_id
     final_name = student_name
-    
+
     if " - " in student_name and not final_id:
         parts = student_name.split(" - ", 1)
         final_id, final_name = parts[0].strip(), parts[1].strip()
-    
+
     return final_id, final_name
 
 
@@ -163,8 +168,7 @@ async def _handle_grading_error(job_id: str, error_detail: str) -> JSONResponse:
     )
 
     return JSONResponse(
-        {"job_id": job_id, "status": "failed", "error": user_message},
-        status_code=500
+        {"job_id": job_id, "status": "failed", "error": user_message}, status_code=500
     )
 
 
@@ -222,16 +226,16 @@ async def get_all_submissions(
     """Get all submissions with server-side pagination and filters."""
     container = get_container()
     repo = container.get_repository()
-    
+
     result = repo.get_all_submissions(
-        page=page, 
+        page=page,
         page_size=page_size,
         student_id=student_id,
         assignment_code=assignment_code,
         topic=topic,
-        status=status
+        status=status,
     )
-    
+
     return result
 
 
@@ -246,20 +250,22 @@ async def get_statistics(assignment_code: Optional[str] = Query(None)):
 # ---------------------------------------------------------------------------
 #  Test Results Detail
 # ---------------------------------------------------------------------------
-@router.get("/api/submission/{submission_id}/testcases", summary="Get test case results")
+@router.get(
+    "/api/submission/{submission_id}/testcases", summary="Get test case results"
+)
 async def get_testcase_results(submission_id: int):
     """Return detailed results for each test case of a submission."""
     container = get_container()
     repo = container.get_repository()
-    
+
     # Get submission
     submission = repo.get_result_by_id(submission_id)
     if not submission:
         return JSONResponse({"error": "Submission not found"}, status_code=404)
-    
+
     # Get test results
     test_results = repo.get_test_results_by_submission(submission_id)
-    
+
     # Optimize: single-pass count instead of iterating test_results twice
     passed_count = sum(1 for r in test_results if r["passed"])
     total_count = len(test_results)
@@ -270,14 +276,16 @@ async def get_testcase_results(submission_id: int):
             "filename": submission.get("filename"),
             "student_name": submission.get("student_name"),
             "total_score": submission.get("total_score"),
-            "status": submission.get("status")
+            "status": submission.get("status"),
         },
         "test_results": test_results,
         "summary": {
             "passed": passed_count,
             "total": total_count,
-            "pass_rate": round(passed_count / total_count * 100, 1) if total_count else 0
-        }
+            "pass_rate": round(passed_count / total_count * 100, 1)
+            if total_count
+            else 0,
+        },
     }
 
 

@@ -15,49 +15,49 @@ logger = logging.getLogger("dsa.seeder")
 def seed_demo_data():
     """Seed demo data for testing."""
     logger.info("Starting data seeding...")
-    
+
     container = get_container()
     repo = container.get_repository()
-    
+
     # 1. Create demo users
     logger.info("Creating demo users...")
-    
+
     users_to_create = [
         {
             "username": "122000001",
             "password": "sv123",
             "full_name": "Nguyễn Văn A",
-            "role": "STUDENT"
+            "role": "STUDENT",
         },
         {
             "username": "122000002",
             "password": "sv123",
             "full_name": "Trần Thị B",
-            "role": "STUDENT"
+            "role": "STUDENT",
         },
         {
             "username": "122000003",
             "password": "sv123",
             "full_name": "Lê Văn C",
-            "role": "STUDENT"
-        }
+            "role": "STUDENT",
+        },
     ]
-    
+
     for user_data in users_to_create:
         if not repo.get_user_by_username(user_data["username"]):
             user_id = repo.create_user(
                 username=user_data["username"],
                 password_hash=hash_password(user_data["password"]),
                 full_name=user_data["full_name"],
-                role=user_data["role"]
+                role=user_data["role"],
             )
             logger.info(f"Created user: {user_data['username']} (ID: {user_id})")
         else:
             logger.info(f"User exists: {user_data['username']}")
-    
+
     # 2. Create demo submissions
     logger.info("Creating demo submissions...")
-    
+
     demo_submissions = [
         {
             "student_id": "122000001",
@@ -83,7 +83,7 @@ print("Sorted array:", sorted_arr)
             "status": "AC",
             "algorithms_detected": ["Bubble Sort", "Sorting"],
             "plagiarism_detected": False,
-            "submitted_at": datetime.now() - timedelta(days=2, hours=5)
+            "submitted_at": datetime.now() - timedelta(days=2, hours=5),
         },
         {
             "student_id": "122000002",
@@ -110,7 +110,7 @@ print("Sorted array:", sorted_arr)
             "status": "AC",
             "algorithms_detected": ["Quick Sort", "Sorting", "Divide and Conquer"],
             "plagiarism_detected": False,
-            "submitted_at": datetime.now() - timedelta(days=1, hours=10)
+            "submitted_at": datetime.now() - timedelta(days=1, hours=10),
         },
         {
             "student_id": "122000003",
@@ -138,7 +138,7 @@ print("Sorted array:", sorted_arr)
             "status": "AC",
             "algorithms_detected": ["Insertion Sort", "Sorting"],
             "plagiarism_detected": False,
-            "submitted_at": datetime.now() - timedelta(hours=3)
+            "submitted_at": datetime.now() - timedelta(hours=3),
         },
         {
             "student_id": "122000001",
@@ -172,10 +172,10 @@ print("BST created successfully")
             "status": "WA",
             "algorithms_detected": ["Binary Search Tree", "Tree Traversal"],
             "plagiarism_detected": False,
-            "submitted_at": datetime.now() - timedelta(days=5)
-        }
+            "submitted_at": datetime.now() - timedelta(days=5),
+        },
     ]
-    
+
     # Save submissions
     saved_count = 0
     for sub in demo_submissions:
@@ -193,22 +193,19 @@ print("BST created successfully")
                 "algorithms_detected": sub["algorithms_detected"],
                 "plagiarism_detected": sub["plagiarism_detected"],
                 "code": sub["code"],
-                "language": "python"
+                "language": "python",
             }
-            
+
             repo.save_result(result_dict)
             saved_count += 1
             logger.info(f"Saved submission: {sub['filename']} by {sub['student_name']}")
-            
+
         except Exception as e:
             logger.error(f"Failed to save submission: {e}")
-    
+
     logger.info(f"Seeding complete! Created {saved_count} demo submissions.")
-    
-    return {
-        "users_created": len(users_to_create),
-        "submissions_created": saved_count
-    }
+
+    return {"users_created": len(users_to_create), "submissions_created": saved_count}
 
 
 if __name__ == "__main__":

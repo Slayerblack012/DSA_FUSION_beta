@@ -3,13 +3,14 @@ from typing import List, Dict, Optional
 from sqlalchemy import text
 from app.db.repositories.base import BaseRepository
 
+
 class LegacyRepository(BaseRepository):
     """Handles integration with legacy SQL Server tables (dbo.BAITAP)."""
 
     _PACKED_CRITERION_RE = re.compile(
-        r'(?:^|[,;\n]\s*)(?:name|criteria_name|criterion|tieu_chi)\s*[:=]\s*'
-        r'(?P<name>.*?)(?:\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*(?P<score>\d+(?:\.\d+)?))?'
-        r'(?=\s*[,;\n]\s*(?:name|criteria_name|criterion|tieu_chi)\s*[:=]|\s*$)',
+        r"(?:^|[,;\n]\s*)(?:name|criteria_name|criterion|tieu_chi)\s*[:=]\s*"
+        r"(?P<name>.*?)(?:\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*(?P<score>\d+(?:\.\d+)?))?"
+        r"(?=\s*[,;\n]\s*(?:name|criteria_name|criterion|tieu_chi)\s*[:=]|\s*$)",
         re.I | re.S,
     )
 
@@ -17,17 +18,32 @@ class LegacyRepository(BaseRepository):
         if not name:
             return ""
         # Remove JSON artifacts and specific keys
-        clean = name.replace('{', '').replace('}', '').replace('[', '').replace(']', '')
-        clean = clean.replace('"tieu_chi":', '').replace('"criteria":', '').replace('"items":', '')
-        clean = clean.replace('"name":', '').replace('"criteria_name":', '').replace('"criterion":', '')
-        clean = clean.replace('tieu_chi:', '').replace('criteria:', '').replace('name:', '')
-        clean = clean.replace('criteria_name:', '').replace('criterion:', '')
-        clean = re.sub(r'\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*\d+(?:\.\d+)?\s*$', '', clean, flags=re.I)
+        clean = name.replace("{", "").replace("}", "").replace("[", "").replace("]", "")
+        clean = (
+            clean.replace('"tieu_chi":', "")
+            .replace('"criteria":', "")
+            .replace('"items":', "")
+        )
+        clean = (
+            clean.replace('"name":', "")
+            .replace('"criteria_name":', "")
+            .replace('"criterion":', "")
+        )
+        clean = (
+            clean.replace("tieu_chi:", "").replace("criteria:", "").replace("name:", "")
+        )
+        clean = clean.replace("criteria_name:", "").replace("criterion:", "")
+        clean = re.sub(
+            r"\s*,\s*(?:points|max_score|score|diem)\s*[:=]\s*\d+(?:\.\d+)?\s*$",
+            "",
+            clean,
+            flags=re.I,
+        )
         # Remove quotes
-        clean = clean.replace('"', '').replace("'", "")
+        clean = clean.replace('"', "").replace("'", "")
         # Remove leading/trailing symbols commonly found in JSON or bad splits
-        clean = re.sub(r'^[,\s:•*-]+', '', clean)
-        clean = re.sub(r'[,\s:•*-]+$', '', clean)
+        clean = re.sub(r"^[,\s:•*-]+", "", clean)
+        clean = re.sub(r"[,\s:•*-]+$", "", clean)
         return clean.strip()
 
     def _split_criteria_text(self, raw_criteria: str) -> List[str]:
@@ -50,7 +66,7 @@ class LegacyRepository(BaseRepository):
                     items.append(name)
             return items
 
-        parts = re.split(r'[;\n]+', raw_criteria)
+        parts = re.split(r"[;\n]+", raw_criteria)
         for part in parts:
             p_clean = self._clean_criterion_name(part)
             if not p_clean or len(p_clean) < 3:
@@ -60,8 +76,13 @@ class LegacyRepository(BaseRepository):
 
         return items
 
-    def get_baitap_criteria(self, assignment_code: Optional[str] = None, topic: Optional[str] = None, 
-                           include_from_assignment: bool = False, split_packed_criteria: bool = False) -> List[Dict]:
+    def get_baitap_criteria(
+        self,
+        assignment_code: Optional[str] = None,
+        topic: Optional[str] = None,
+        include_from_assignment: bool = False,
+        split_packed_criteria: bool = False,
+    ) -> List[Dict]:
         """Load grading criteria from legacy SQL Server BAITAP table."""
         if not self.db.is_sql_server:
             return []
@@ -70,16 +91,16 @@ class LegacyRepository(BaseRepository):
             with self.get_session() as session:
                 query = "SELECT MaBaiTap, TenBaiTap, TieuChiChamDiem FROM BAITAP WHERE MaBaiTap LIKE 'CTDL%' AND (IsDeleted = 0 OR IsDeleted IS NULL)"
                 params = {}
-                
+
                 if assignment_code:
                     if include_from_assignment:
                         query += " AND MaBaiTap >= :code"
                     else:
                         query += " AND MaBaiTap = :code"
                     params["code"] = assignment_code
-                
+
                 rows = session.execute(text(query), params).fetchall()
-                
+
                 results = []
                 for r in rows:
                     raw_criteria = str(r[2]) if r[2] else ""
@@ -89,22 +110,28 @@ class LegacyRepository(BaseRepository):
                             p_clean = self._clean_criterion_name(p)
                             if not p_clean or len(p_clean) < 3:
                                 continue
-                            
-                            score_match = re.search(r'\((\d+\.?\d*)\s*[đd]\)', p, re.I)
-                            results.append({
-                                "assignment_code": str(r[0]),
-                                "criteria_name": p_clean,
-                                "max_score": float(score_match.group(1)) if score_match else 2.0,
-                                "description": p_clean
-                            })
+
+                            score_match = re.search(r"\((\d+\.?\d*)\s*[đd]\)", p, re.I)
+                            results.append(
+                                {
+                                    "assignment_code": str(r[0]),
+                                    "criteria_name": p_clean,
+                                    "max_score": float(score_match.group(1))
+                                    if score_match
+                                    else 2.0,
+                                    "description": p_clean,
+                                }
+                            )
                     else:
-                        results.append({
-                            "assignment_code": str(r[0]),
-                            "title": str(r[1]),
-                            "criteria_name": "Tiêu chí tổng quát",
-                            "max_score": 10.0,
-                            "description": raw_criteria
-                        })
+                        results.append(
+                            {
+                                "assignment_code": str(r[0]),
+                                "title": str(r[1]),
+                                "criteria_name": "Tiêu chí tổng quát",
+                                "max_score": 10.0,
+                                "description": raw_criteria,
+                            }
+                        )
                 return results
         except Exception as e:
             self.logger.error("Legacy BAITAP fetch failed: %s", e)
@@ -116,7 +143,11 @@ class LegacyRepository(BaseRepository):
             return []
         try:
             with self.get_session() as session:
-                result = session.execute(text("SELECT DISTINCT MaBaiTap FROM BAITAP WHERE MaBaiTap LIKE 'CTDL%' AND (IsDeleted = 0 OR IsDeleted IS NULL) ORDER BY MaBaiTap")).fetchall()
+                result = session.execute(
+                    text(
+                        "SELECT DISTINCT MaBaiTap FROM BAITAP WHERE MaBaiTap LIKE 'CTDL%' AND (IsDeleted = 0 OR IsDeleted IS NULL) ORDER BY MaBaiTap"
+                    )
+                ).fetchall()
                 return [str(row[0]) for row in result]
         except Exception as e:
             self.logger.error("Failed to fetch assignment codes: %s", e)
@@ -134,9 +165,9 @@ class LegacyRepository(BaseRepository):
                 if min_code and min_code != "ALL":
                     query += " AND MaBaiTap >= :min_code"
                     params["min_code"] = min_code
-                
+
                 rows = session.execute(text(query), params).fetchall()
-                
+
                 exercises = []
                 for r in rows:
                     raw_criteria = str(r[2]) if r[2] else ""
@@ -147,21 +178,27 @@ class LegacyRepository(BaseRepository):
                             p_clean = self._clean_criterion_name(p)
                             if not p_clean or len(p_clean) < 3:
                                 continue
-                            
-                            score_match = re.search(r'\((\d+\.?\d*)\s*[đd]\)', p, re.I)
-                            criteria_list.append({
-                                "name": p_clean,
-                                "max_score": float(score_match.group(1)) if score_match else 2.0,
-                                "description": p_clean
-                            })
-                    
-                    exercises.append({
-                        "assignment_code": str(r[0]),
-                        "title": str(r[1]),
-                        "criteria": criteria_list,
-                        "criteria_raw": raw_criteria,
-                        "description": str(r[3]) if r[3] else ""
-                    })
+
+                            score_match = re.search(r"\((\d+\.?\d*)\s*[đd]\)", p, re.I)
+                            criteria_list.append(
+                                {
+                                    "name": p_clean,
+                                    "max_score": float(score_match.group(1))
+                                    if score_match
+                                    else 2.0,
+                                    "description": p_clean,
+                                }
+                            )
+
+                    exercises.append(
+                        {
+                            "assignment_code": str(r[0]),
+                            "title": str(r[1]),
+                            "criteria": criteria_list,
+                            "criteria_raw": raw_criteria,
+                            "description": str(r[3]) if r[3] else "",
+                        }
+                    )
                 return exercises
         except Exception as e:
             self.logger.error("Failed to fetch baitap exercises: %s", e)

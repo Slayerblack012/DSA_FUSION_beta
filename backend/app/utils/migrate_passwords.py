@@ -30,7 +30,9 @@ from app.services.repository import GradingRepository
 from app.utils.auth import hash_password
 
 logger = logging.getLogger("dsa.migration")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s"
+)
 
 # SHA-256 hash length is 64 chars (hex)
 # bcrypt hash length is 60 chars (base64-like, starts with $2b$)
@@ -40,7 +42,9 @@ BCRYPT_HASH_PREFIX = "$2b$"
 
 def is_legacy_hash(password_hash: str) -> bool:
     """Check if a password hash is the old SHA-256 format."""
-    return len(password_hash) == SHA256_HASH_LENGTH and not password_hash.startswith(BCRYPT_HASH_PREFIX)
+    return len(password_hash) == SHA256_HASH_LENGTH and not password_hash.startswith(
+        BCRYPT_HASH_PREFIX
+    )
 
 
 def is_bcrypt_hash(password_hash: str) -> bool:
@@ -100,7 +104,9 @@ def migrate_passwords(dry_run: bool = False, force_reset: bool = False) -> dict:
                 stats["legacy_sha256"] += 1
 
                 if dry_run:
-                    logger.info("  [DRY RUN] %s: Would mark for password reset", username)
+                    logger.info(
+                        "  [DRY RUN] %s: Would mark for password reset", username
+                    )
                     stats["migrated"] += 1
                     continue
 
@@ -110,20 +116,18 @@ def migrate_passwords(dry_run: bool = False, force_reset: bool = False) -> dict:
                     new_hash = hash_password(temp_password)
                     logger.warning(
                         "  [RESET] %s: Password reset to '%s' (user must change)",
-                        username, temp_password
+                        username,
+                        temp_password,
                     )
                 else:
                     # Mark for password reset (set a special prefix)
                     new_hash = f"[RESET_REQUIRED]_{password_hash}"
-                    logger.info(
-                        "  [MARKED] %s: Marked for password reset",
-                        username
-                    )
+                    logger.info("  [MARKED] %s: Marked for password reset", username)
 
                 # Update database
                 cursor.execute(
                     "UPDATE users SET password_hash = ? WHERE id = ?",
-                    (new_hash, user_id)
+                    (new_hash, user_id),
                 )
                 stats["migrated"] += 1
             else:
@@ -155,9 +159,15 @@ def migrate_passwords(dry_run: bool = False, force_reset: bool = False) -> dict:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Migrate user passwords from SHA-256 to bcrypt")
-    parser.add_argument("--dry-run", action="store_true", help="Only report, don't make changes")
-    parser.add_argument("--force-reset", action="store_true", help="Reset legacy passwords to defaults")
+    parser = argparse.ArgumentParser(
+        description="Migrate user passwords from SHA-256 to bcrypt"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Only report, don't make changes"
+    )
+    parser.add_argument(
+        "--force-reset", action="store_true", help="Reset legacy passwords to defaults"
+    )
     args = parser.parse_args()
 
     stats = migrate_passwords(dry_run=args.dry_run, force_reset=args.force_reset)

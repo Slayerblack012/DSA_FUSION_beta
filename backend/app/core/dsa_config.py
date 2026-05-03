@@ -233,12 +233,16 @@ def build_config() -> DSAConfig:
                 "  JWT_SECRET_KEY=<your-secret-here>"
             )
         # Development fallback only (with warning logged later)
-        jwt_raw = "dev-secret-change-me-in-production-" + _as_str("MY_SECRET_KEY", "dev")[:20]
+        jwt_raw = (
+            "dev-secret-change-me-in-production-" + _as_str("MY_SECRET_KEY", "dev")[:20]
+        )
     security = SecuritySettings(
         my_secret_key=_as_str("MY_SECRET_KEY", ""),
         jwt_secret_key=jwt_raw,
         cors_allowed_origins=cors_raw,
-        cors_allowed_origins_list=["*"] if cors_raw == "*" else _as_csv("CORS_ALLOWED_ORIGINS", ""),
+        cors_allowed_origins_list=["*"]
+        if cors_raw == "*"
+        else _as_csv("CORS_ALLOWED_ORIGINS", ""),
         rate_limit_enabled=_as_bool("RATE_LIMIT_ENABLED", True),
         rate_limit_per_minute=_as_int("RATE_LIMIT_PER_MINUTE", 60),
         rate_limit_per_hour=_as_int("RATE_LIMIT_PER_HOUR", 1000),
@@ -262,8 +266,12 @@ def build_config() -> DSAConfig:
     )
 
     integrations = IntegrationSettings(
-        question_bank_api_url=_as_str("QUESTION_BANK_API_URL", "https://api-dsa-python.onrender.com"),
-        rubric_api_url=_as_str("RUBRIC_API_URL", "https://api-dsa-python.onrender.com/api/rubrics"),
+        question_bank_api_url=_as_str(
+            "QUESTION_BANK_API_URL", "https://api-dsa-python.onrender.com"
+        ),
+        rubric_api_url=_as_str(
+            "RUBRIC_API_URL", "https://api-dsa-python.onrender.com/api/rubrics"
+        ),
     )
 
     return DSAConfig(
@@ -291,10 +299,16 @@ def _validate(config: DSAConfig) -> Tuple[List[str], List[str]]:
     if config.app.port <= 0 or config.app.port > 65535:
         errors.append("PORT must be between 1 and 65535")
 
-    if config.features.plagiarism_threshold < 0 or config.features.plagiarism_threshold > 1:
+    if (
+        config.features.plagiarism_threshold < 0
+        or config.features.plagiarism_threshold > 1
+    ):
         errors.append("PLAGIARISM_THRESHOLD must be between 0 and 1")
 
-    if config.features.pass_score_threshold < 0 or config.features.pass_score_threshold > 100:
+    if (
+        config.features.pass_score_threshold < 0
+        or config.features.pass_score_threshold > 100
+    ):
         errors.append("PASS_SCORE_THRESHOLD must be between 0 and 100")
 
     if config.security.rate_limit_per_minute <= 0:
@@ -304,7 +318,9 @@ def _validate(config: DSAConfig) -> Tuple[List[str], List[str]]:
         errors.append("RATE_LIMIT_PER_HOUR must be > 0")
 
     if config.sandbox.max_memory_mb < 64:
-        warnings.append("SANDBOX_MAX_MEMORY_MB is very low; code execution may fail unexpectedly")
+        warnings.append(
+            "SANDBOX_MAX_MEMORY_MB is very low; code execution may fail unexpectedly"
+        )
 
     if config.sandbox.max_cpu_time < 1:
         errors.append("SANDBOX_MAX_CPU_TIME must be >= 1")
@@ -314,14 +330,21 @@ def _validate(config: DSAConfig) -> Tuple[List[str], List[str]]:
             errors.append("AI_PROVIDER must be 'gemini'")
 
         if not config.ai.gemini_api_key:
-            errors.append("GEMINI_API_KEY is required in production when AI_PROVIDER=gemini")
+            errors.append(
+                "GEMINI_API_KEY is required in production when AI_PROVIDER=gemini"
+            )
 
         if not config.security.my_secret_key:
             errors.append("MY_SECRET_KEY is required in production")
 
         # JWT_SECRET_KEY is already enforced at build time, but double-check here
-        if not config.security.jwt_secret_key or len(config.security.jwt_secret_key) < 32:
-            errors.append("JWT_SECRET_KEY must be set and at least 32 characters in production")
+        if (
+            not config.security.jwt_secret_key
+            or len(config.security.jwt_secret_key) < 32
+        ):
+            errors.append(
+                "JWT_SECRET_KEY must be set and at least 32 characters in production"
+            )
 
         if config.security.cors_allowed_origins == "*":
             warnings.append("CORS_ALLOWED_ORIGINS='*' in production is unsafe")
@@ -335,7 +358,9 @@ def _validate(config: DSAConfig) -> Tuple[List[str], List[str]]:
                 "Set a secure value for production!"
             )
 
-    if config.database.redis_url and not config.database.redis_url.startswith("redis://"):
+    if config.database.redis_url and not config.database.redis_url.startswith(
+        "redis://"
+    ):
         warnings.append("REDIS_URL should start with redis://")
 
     return errors, warnings
@@ -360,11 +385,23 @@ def check_and_log_config() -> None:
     logger.info("Environment: %s", SETTINGS.app.environment)
     logger.info("Production: %s", SETTINGS.app.is_production)
     logger.info("Port: %s", SETTINGS.app.port)
-    logger.info("Rate Limiting: %s", "Enabled" if SETTINGS.security.rate_limit_enabled else "Disabled")
-    logger.info("Metrics: %s", "Enabled" if SETTINGS.features.metrics_enabled else "Disabled")
-    logger.info("AI Provider/Model: %s / %s", SETTINGS.ai.provider, SETTINGS.ai.model_name)
-    logger.info("Database: %s", "SQL Server" if SETTINGS.database.sql_server_url else "SQLite")
-    logger.info("Redis: %s", "Enabled" if SETTINGS.database.redis_url else "Disabled (in-memory)")
+    logger.info(
+        "Rate Limiting: %s",
+        "Enabled" if SETTINGS.security.rate_limit_enabled else "Disabled",
+    )
+    logger.info(
+        "Metrics: %s", "Enabled" if SETTINGS.features.metrics_enabled else "Disabled"
+    )
+    logger.info(
+        "AI Provider/Model: %s / %s", SETTINGS.ai.provider, SETTINGS.ai.model_name
+    )
+    logger.info(
+        "Database: %s", "SQL Server" if SETTINGS.database.sql_server_url else "SQLite"
+    )
+    logger.info(
+        "Redis: %s",
+        "Enabled" if SETTINGS.database.redis_url else "Disabled (in-memory)",
+    )
     logger.info("Base Dir: %s", SETTINGS.paths.base_dir)
     logger.info("Data Dir: %s", SETTINGS.paths.data_dir)
     logger.info("=" * 60)

@@ -24,6 +24,7 @@ logger = logging.getLogger("dsa.complexity")
 @dataclass
 class ASTFeatures:
     """AST analysis results relevant for complexity estimation."""
+
     max_loop_depth: int = 0
     has_recursion: bool = False
     has_div2: bool = False  # Division by 2 (binary search indicator)
@@ -36,6 +37,7 @@ class ASTFeatures:
 @dataclass
 class ComplexityReport:
     """Result of complexity analysis."""
+
     estimated_big_o: str = "O(n)"
     score: float = 1.0  # Normalized 0.0 - 1.0
     max_score: float = 1.0
@@ -60,8 +62,14 @@ class ComplexityReport:
 # Constants
 # ---------------------------------------------------------------------------
 EFFICIENT_ALGORITHMS = {
-    "binary_search", "merge_sort", "quick_sort", "heap_sort",
-    "dijkstra", "bfs", "dfs", "binary_search_tree",
+    "binary_search",
+    "merge_sort",
+    "quick_sort",
+    "heap_sort",
+    "dijkstra",
+    "bfs",
+    "dfs",
+    "binary_search_tree",
 }
 
 COMPLEXITY_O1_SCORE = 1.0
@@ -252,7 +260,9 @@ def generate_complexity_curve(
         "optimal_curve": {
             "big_o": optimal_big_o or "N/A",
             "values": optimal_curve,
-        } if optimal_curve else None,
+        }
+        if optimal_curve
+        else None,
         "metadata": {
             "description": "Complexity comparison chart data",
             "y_axis": "Relative operations count",
@@ -285,7 +295,7 @@ def _compute_complexity_value(big_o: str, n: int) -> float:
         # Extract exponent
         try:
             exp = int(big_o.split("^")[1].rstrip(")"))
-            return float(n ** exp) / (10 ** (exp - 1))
+            return float(n**exp) / (10 ** (exp - 1))
         except (ValueError, IndexError):
             return float(n)
     elif big_o == "O(recursion)":

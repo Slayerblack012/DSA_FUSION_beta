@@ -30,6 +30,7 @@ logger = logging.getLogger("dsa.batch_test_runner")
 @dataclass
 class TestCaseResult:
     """Result of a single test case."""
+
     test_id: str
     input_data: str
     expected_output: str
@@ -58,6 +59,7 @@ class TestCaseResult:
 @dataclass
 class BatchTestReport:
     """Complete batch test execution report."""
+
     total: int = 0
     passed: int = 0
     failed: int = 0
@@ -78,7 +80,9 @@ class BatchTestReport:
             "timed_out": self.timed_out,
             "score": round(self.score, 2),
             "max_score": self.max_score,
-            "pass_rate": round(self.passed / self.total * 100, 1) if self.total > 0 else 0,
+            "pass_rate": round(self.passed / self.total * 100, 1)
+            if self.total > 0
+            else 0,
             "total_time_ms": round(self.total_time_ms, 2),
             "peak_memory_kb": self.peak_memory_kb,
             "fail_fast_triggered": self.fail_fast_triggered,
@@ -93,6 +97,7 @@ class BatchTestReport:
 @dataclass
 class TestCase:
     """A single test case with input and expected output."""
+
     id: str
     input_data: str
     expected_output: str
@@ -153,12 +158,14 @@ def load_test_cases(
                 with open(output_path, "r", encoding="utf-8") as f:
                     expected_output = f.read().strip()
 
-                test_cases.append(TestCase(
-                    id=str(i),
-                    input_data=input_data,
-                    expected_output=expected_output,
-                    name=f"Test {i}",
-                ))
+                test_cases.append(
+                    TestCase(
+                        id=str(i),
+                        input_data=input_data,
+                        expected_output=expected_output,
+                        name=f"Test {i}",
+                    )
+                )
             except Exception as e:
                 logger.warning("Failed to load test case %s: %s", i, e)
         else:
@@ -236,7 +243,9 @@ class BatchTestRunner:
         effective_timeout = self.timeout_per_case
         if is_complex:
             effective_timeout = max(self.timeout_per_case, 10)
-            logger.info("Complex topic detected: extending timeout to %ds", effective_timeout)
+            logger.info(
+                "Complex topic detected: extending timeout to %ds", effective_timeout
+            )
 
         # Run all test cases in batch
         inputs = [tc.input_data for tc in test_cases]
@@ -280,12 +289,14 @@ class BatchTestRunner:
                 report.fail_fast_triggered = True
                 # Fill remaining test cases as "not run"
                 for j in range(i + 1, len(test_cases)):
-                    report.results.append(TestCaseResult(
-                        test_id=test_cases[j].id,
-                        input_data=test_cases[j].input_data,
-                        expected_output=test_cases[j].expected_output,
-                        notes="Not run (fail-fast triggered)",
-                    ))
+                    report.results.append(
+                        TestCaseResult(
+                            test_id=test_cases[j].id,
+                            input_data=test_cases[j].input_data,
+                            expected_output=test_cases[j].expected_output,
+                            notes="Not run (fail-fast triggered)",
+                        )
+                    )
                     report.failed += 1
                 break
 
@@ -298,8 +309,10 @@ class BatchTestRunner:
 
         logger.info(
             "Batch test results: %d/%d passed (score: %.1f/%.1f, time: %.0fms)",
-            report.passed, report.total,
-            report.score, self.max_score,
+            report.passed,
+            report.total,
+            report.score,
+            self.max_score,
             report.total_time_ms,
         )
 
@@ -309,8 +322,16 @@ class BatchTestRunner:
     def _is_complex_topic(topic: str) -> bool:
         """Check if topic typically needs longer execution time."""
         complex_keywords = {
-            "graph", "bfs", "dfs", "dijkstra", "nqueen", "backtrack",
-            "mst", "matrix", "dynamic_programming", "dp",
+            "graph",
+            "bfs",
+            "dfs",
+            "dijkstra",
+            "nqueen",
+            "backtrack",
+            "mst",
+            "matrix",
+            "dynamic_programming",
+            "dp",
         }
         topic_lower = topic.lower()
         return any(kw in topic_lower for kw in complex_keywords)

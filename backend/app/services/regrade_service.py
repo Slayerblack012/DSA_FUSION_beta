@@ -17,7 +17,7 @@ logger = logging.getLogger("dsa.services.regrade")
 class RegradeService:
     """
     Service for handling all regrade operations.
-    
+
     Features:
     - Single submission regrade
     - Batch regrade by assignment
@@ -32,22 +32,20 @@ class RegradeService:
         self._job_store = self._container.get_job_store()
 
     async def regrade_single(
-        self,
-        submission_id: int,
-        reviewer_id: str = "system"
+        self, submission_id: int, reviewer_id: str = "system"
     ) -> Dict[str, Any]:
         """
         Regrade a single submission.
-        
+
         Args:
             submission_id: Submission ID to regrade
             reviewer_id: User triggering the regrade
-            
+
         Returns:
             Result dictionary with new score and status
         """
         logger.info("Starting regrade for submission %d", submission_id)
-        
+
         try:
             # 1. Get original submission
             submission = self._repository.get_result_by_id(submission_id)
@@ -69,7 +67,7 @@ class RegradeService:
 
             # 3. Re-run grading
             files = [(submission.get("filename", "submission.py"), code)]
-            
+
             result = await self._grading_service.grade_submission(
                 files=files,
                 topic=submission.get("topic", ""),
@@ -83,19 +81,21 @@ class RegradeService:
                 new_result = result["results"][0]
                 new_score = new_result.get("total_score", 0)
                 old_score = submission.get("total_score", 0)
-                
+
                 # Update with new score
                 self._repository.update_submission_score(
                     submission_id=submission_id,
                     new_score=new_score,
                     reviewer_id=reviewer_id,
                     reason=f"Regraded automatically (old score: {old_score:.1f})",
-                    feedback=""
+                    feedback="",
                 )
 
                 logger.info(
                     "Regrade completed for %d: %f → %f",
-                    submission_id, old_score, new_score
+                    submission_id,
+                    old_score,
+                    new_score,
                 )
 
                 return {
@@ -121,31 +121,32 @@ class RegradeService:
             }
 
     async def regrade_by_assignment(
-        self,
-        assignment_code: str,
-        reviewer_id: str = "system"
+        self, assignment_code: str, reviewer_id: str = "system"
     ) -> Dict[str, Any]:
         """
         Regrade all submissions for an assignment.
-        
+
         Args:
             assignment_code: Assignment code to regrade
             reviewer_id: User triggering the regrade
-            
+
         Returns:
             Summary of regrade operation
         """
         logger.info("Starting batch regrade for assignment: %s", assignment_code)
-        
+
         # Create job for tracking
         job_id = f"regrade_{assignment_code}_{int(datetime.now().timestamp())}"
-        await self._job_store.set(job_id, {
-            "type": "batch_regrade",
-            "assignment_code": assignment_code,
-            "status": "processing",
-            "started_at": datetime.now().isoformat(),
-            "progress": {"current": 0, "total": 0},
-        })
+        await self._job_store.set(
+            job_id,
+            {
+                "type": "batch_regrade",
+                "assignment_code": assignment_code,
+                "status": "processing",
+                "started_at": datetime.now().isoformat(),
+                "progress": {"current": 0, "total": 0},
+            },
+        )
 
         try:
             # 1. Get ALL submissions for this assignment (paginate through all pages)
@@ -166,13 +167,16 @@ class RegradeService:
                     break  # Last page
                 page += 1
                 logger.debug("  Loaded page %d: %d submissions", page, len(submissions))
-            
+
             if not submissions:
-                await self._job_store.set(job_id, {
-                    "type": "batch_regrade",
-                    "status": "completed",
-                    "message": "No submissions found",
-                })
+                await self._job_store.set(
+                    job_id,
+                    {
+                        "type": "batch_regrade",
+                        "status": "completed",
+                        "message": "No submissions found",
+                    },
+                )
                 return {
                     "success": True,
                     "message": "No submissions found for this assignment",
@@ -191,49 +195,59 @@ class RegradeService:
                     continue
 
                 result = await self.regrade_single(sub_id, reviewer_id)
-                
+
                 if result.get("success"):
                     success_count += 1
                     if result.get("score_change", 0) != 0:
-                        score_changes.append({
-                            "submission_id": sub_id,
-                            "student": sub.get("student_name"),
-                            "old": result.get("old_score"),
-                            "new": result.get("new_score"),
-                            "change": result.get("score_change"),
-                        })
+                        score_changes.append(
+                            {
+                                "submission_id": sub_id,
+                                "student": sub.get("student_name"),
+                                "old": result.get("old_score"),
+                                "new": result.get("new_score"),
+                                "change": result.get("score_change"),
+                            }
+                        )
                 else:
                     failed_count += 1
 
                 # Update progress
-                await self._job_store.set(job_id, {
-                    "type": "batch_regrade",
-                    "assignment_code": assignment_code,
-                    "status": "processing",
-                    "progress": {
-                        "current": i + 1,
-                        "total": total,
-                        "percent": int((i + 1) / total * 100),
+                await self._job_store.set(
+                    job_id,
+                    {
+                        "type": "batch_regrade",
+                        "assignment_code": assignment_code,
+                        "status": "processing",
+                        "progress": {
+                            "current": i + 1,
+                            "total": total,
+                            "percent": int((i + 1) / total * 100),
+                        },
                     },
-                })
+                )
 
             # 3. Complete job
-            await self._job_store.set(job_id, {
-                "type": "batch_regrade",
-                "assignment_code": assignment_code,
-                "status": "completed",
-                "completed_at": datetime.now().isoformat(),
-                "summary": {
-                    "total": total,
-                    "success": success_count,
-                    "failed": failed_count,
-                    "score_changes": len(score_changes),
+            await self._job_store.set(
+                job_id,
+                {
+                    "type": "batch_regrade",
+                    "assignment_code": assignment_code,
+                    "status": "completed",
+                    "completed_at": datetime.now().isoformat(),
+                    "summary": {
+                        "total": total,
+                        "success": success_count,
+                        "failed": failed_count,
+                        "score_changes": len(score_changes),
+                    },
                 },
-            })
+            )
 
             logger.info(
                 "Batch regrade completed: %d/%d success, %d failed",
-                success_count, total, failed_count
+                success_count,
+                total,
+                failed_count,
             )
 
             return {
@@ -247,39 +261,42 @@ class RegradeService:
 
         except Exception as e:
             logger.error("Batch regrade failed: %s", e, exc_info=True)
-            await self._job_store.set(job_id, {
-                "type": "batch_regrade",
-                "status": "failed",
-                "error": str(e),
-            })
+            await self._job_store.set(
+                job_id,
+                {
+                    "type": "batch_regrade",
+                    "status": "failed",
+                    "error": str(e),
+                },
+            )
             return {
                 "success": False,
                 "error": str(e),
             }
 
-    async def regrade_all(
-        self,
-        reviewer_id: str = "system"
-    ) -> Dict[str, Any]:
+    async def regrade_all(self, reviewer_id: str = "system") -> Dict[str, Any]:
         """
         Regrade all submissions in the system.
-        
+
         WARNING: This is a heavy operation. Use with caution.
-        
+
         Args:
             reviewer_id: User triggering the regrade
-            
+
         Returns:
             Summary of regrade operation
         """
         logger.info("Starting FULL SYSTEM regrade")
-        
+
         job_id = f"regrade_all_{int(datetime.now().timestamp())}"
-        await self._job_store.set(job_id, {
-            "type": "full_regrade",
-            "status": "processing",
-            "started_at": datetime.now().isoformat(),
-        })
+        await self._job_store.set(
+            job_id,
+            {
+                "type": "full_regrade",
+                "status": "processing",
+                "started_at": datetime.now().isoformat(),
+            },
+        )
 
         try:
             # 1. Get ALL submissions (paginate through all pages)
@@ -287,7 +304,9 @@ class RegradeService:
             page = 1
             page_size = 500
             while True:
-                result = self._repository.get_all_submissions(page=page, page_size=page_size)
+                result = self._repository.get_all_submissions(
+                    page=page, page_size=page_size
+                )
                 batch = result.get("submissions", [])
                 if not batch:
                     break
@@ -295,13 +314,16 @@ class RegradeService:
                 if len(batch) < page_size:
                     break
                 page += 1
-            
+
             if not submissions:
-                await self._job_store.set(job_id, {
-                    "type": "full_regrade",
-                    "status": "completed",
-                    "message": "No submissions found",
-                })
+                await self._job_store.set(
+                    job_id,
+                    {
+                        "type": "full_regrade",
+                        "status": "completed",
+                        "message": "No submissions found",
+                    },
+                )
                 return {
                     "success": True,
                     "message": "No submissions found in system",
@@ -323,50 +345,62 @@ class RegradeService:
             processed = 0
 
             for assignment_code, subs in by_assignment.items():
-                logger.info("Processing assignment: %s (%d submissions)", assignment_code, len(subs))
-                
+                logger.info(
+                    "Processing assignment: %s (%d submissions)",
+                    assignment_code,
+                    len(subs),
+                )
+
                 for sub in subs:
                     sub_id = sub.get("id")
                     if not sub_id:
                         continue
 
                     result = await self.regrade_single(sub_id, reviewer_id)
-                    
+
                     if result.get("success"):
                         success_count += 1
                     else:
                         failed_count += 1
 
                     processed += 1
-                    
+
                     # Update progress
-                    await self._job_store.set(job_id, {
-                        "type": "full_regrade",
-                        "status": "processing",
-                        "progress": {
-                            "current": processed,
-                            "total": total,
-                            "percent": int(processed / total * 100),
+                    await self._job_store.set(
+                        job_id,
+                        {
+                            "type": "full_regrade",
+                            "status": "processing",
+                            "progress": {
+                                "current": processed,
+                                "total": total,
+                                "percent": int(processed / total * 100),
+                            },
+                            "current_assignment": assignment_code,
                         },
-                        "current_assignment": assignment_code,
-                    })
+                    )
 
             # 4. Complete job
-            await self._job_store.set(job_id, {
-                "type": "full_regrade",
-                "status": "completed",
-                "completed_at": datetime.now().isoformat(),
-                "summary": {
-                    "total": total,
-                    "success": success_count,
-                    "failed": failed_count,
-                    "assignments_processed": len(by_assignment),
+            await self._job_store.set(
+                job_id,
+                {
+                    "type": "full_regrade",
+                    "status": "completed",
+                    "completed_at": datetime.now().isoformat(),
+                    "summary": {
+                        "total": total,
+                        "success": success_count,
+                        "failed": failed_count,
+                        "assignments_processed": len(by_assignment),
+                    },
                 },
-            })
+            )
 
             logger.info(
                 "Full system regrade completed: %d/%d success, %d failed",
-                success_count, total, failed_count
+                success_count,
+                total,
+                failed_count,
             )
 
             return {
@@ -380,11 +414,14 @@ class RegradeService:
 
         except Exception as e:
             logger.error("Full system regrade failed: %s", e, exc_info=True)
-            await self._job_store.set(job_id, {
-                "type": "full_regrade",
-                "status": "failed",
-                "error": str(e),
-            })
+            await self._job_store.set(
+                job_id,
+                {
+                    "type": "full_regrade",
+                    "status": "failed",
+                    "error": str(e),
+                },
+            )
             return {
                 "success": False,
                 "error": str(e),

@@ -56,8 +56,8 @@ class SimpleMetrics:
             lines.append(f"# TYPE {base_name} histogram")
             if values:
                 # Fix: Prometheus requires NUMERIC values (not quoted strings)
-                lines.append(f'{base_name}_sum{{}} {sum(values):.2f}')
-                lines.append(f'{base_name}_count{{}} {len(values)}')
+                lines.append(f"{base_name}_sum{{}} {sum(values):.2f}")
+                lines.append(f"{base_name}_count{{}} {len(values)}")
                 lines.append(
                     f'{base_name}_bucket{{le="0.5"}} {sum(1 for v in values if v <= 0.5)}'
                 )

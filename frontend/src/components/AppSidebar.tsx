@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ClipboardList, Activity, Settings } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import type { AppTab } from "@/types";
 
 const SIDEBAR_ITEMS: Array<{ label: string; id: AppTab; icon: React.ElementType }> = [

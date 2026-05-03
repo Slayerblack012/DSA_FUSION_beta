@@ -27,5 +27,7 @@ if (-not (Test-Path $pythonExe)) {
     throw "Python executable not found at $pythonExe"
 }
 
+$env:PYTHONDONTWRITEBYTECODE = "1"
+
 Write-Host "[INFO] Starting backend on http://127.0.0.1:$Port"
 & $pythonExe -m uvicorn app.main:app --host 127.0.0.1 --port $Port

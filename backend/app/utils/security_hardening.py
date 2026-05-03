@@ -5,6 +5,7 @@ Enhanced security features.
 """
 
 import logging
+import os
 import re
 from typing import Dict
 
@@ -49,9 +50,7 @@ class SecurityAuditLogger:
     def __init__(self, log_file: str = "logs/security_audit.log"):
         self.log_file = log_file
         try:
-            import os
-
-            os.makedirs("logs", exist_ok=True)
+            os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
             self.audit_logger = logging.getLogger("dsa.security.audit")
             handler = logging.FileHandler(log_file)
             handler.setFormatter(

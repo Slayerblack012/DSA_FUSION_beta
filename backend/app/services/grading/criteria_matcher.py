@@ -34,14 +34,18 @@ _ALGORITHM_KEYWORDS: Dict[str, List[str]] = {
     "Dictionary": ["ánh xạ", "dictionary", "dict", "bảng băm", "hash map", "key-value"],
     "Generator/Yield": ["sinh", "generator", "yield", "lười biếng", "lazy"],
     "Lambda Function": ["lambda", "ẩn danh", "anonymous", "hàm gọn"],
-
     # Basic algorithms
     "Linear Search": ["tìm kiếm tuyến tính", "linear search", "duyệt", "tìm tuần tự"],
     "Basic Sorting (Bubble/Selection/Insertion)": [
-        "sắp xếp", "sorting", "bubble", "selection", "insertion",
-        "nổi bọt", "chèn", "đổi chỗ",
+        "sắp xếp",
+        "sorting",
+        "bubble",
+        "selection",
+        "insertion",
+        "nổi bọt",
+        "chèn",
+        "đổi chỗ",
     ],
-
     # Intermediate
     "Linked List": ["danh sách liên kết", "linked list", "node", "con trỏ"],
     "Double Linked List": ["danh sách liên kết kép", "double linked", "prev", "next"],
@@ -49,26 +53,37 @@ _ALGORITHM_KEYWORDS: Dict[str, List[str]] = {
     "Queue": ["hàng đợi", "queue", "fifo", "deque", "enqueue", "dequeue"],
     "Heap/Priority Queue": ["heap", "ưu tiên", "priority", "heapq"],
     "Binary Search": ["nhị phân", "binary search", "chia đôi", "tìm nhị phân"],
-
     # Advanced
     "Recursion": ["đệ quy", "recursion", "gọi lại chính nó"],
     "Divide & Conquer": ["chia để trị", "divide and conquer", "chia nhỏ"],
     "Quick Sort": ["quick sort", "sắp xếp nhanh", "pivot"],
     "Merge Sort": ["merge sort", "sắp xếp trộn", "trộn"],
-
     # Data structures
-    "Binary Search Tree/BST": ["cây nhị phân", "bst", "binary search tree", "cây tìm kiếm"],
+    "Binary Search Tree/BST": [
+        "cây nhị phân",
+        "bst",
+        "binary search tree",
+        "cây tìm kiếm",
+    ],
     "Trie (Prefix Tree)": ["trie", "tiền tố", "prefix tree", "từ điển"],
     "Graph": ["đồ thị", "graph", "cạnh", "đỉnh", "vertex", "edge", "adjacency"],
-
     # Advanced algorithms
     "Graph Traversal (BFS/DFS)": [
-        "duyệt đồ thị", "bfs", "dfs", "breadth", "depth",
-        "theo chiều rộng", "theo chiều sâu",
+        "duyệt đồ thị",
+        "bfs",
+        "dfs",
+        "breadth",
+        "depth",
+        "theo chiều rộng",
+        "theo chiều sâu",
     ],
     "Dynamic Programming (DP)": [
-        "quy hoạch động", "dynamic programming", "dp", "memo",
-        "bảng phương án", "lưu trữ kết quả",
+        "quy hoạch động",
+        "dynamic programming",
+        "dp",
+        "memo",
+        "bảng phương án",
+        "lưu trữ kết quả",
     ],
     "3D Dynamic Programming": ["quy hoạch động 3 chiều", "3d dp", "bảng 3 chiều"],
     "Backtracking": ["quay lui", "backtracking", "thử và sai", "undo"],
@@ -79,15 +94,26 @@ _ALGORITHM_KEYWORDS: Dict[str, List[str]] = {
 
 # Fallback: generic criteria that always apply
 _ALWAYS_APPLY_CRITERIA = [
-    "kiểm thử", "test", "correct", "đúng", "chính xác", "output",
-    "pep8", "style", "format", "readability", "coding convention",
-    "trình bày", "định dạng",
+    "kiểm thử",
+    "test",
+    "correct",
+    "đúng",
+    "chính xác",
+    "output",
+    "pep8",
+    "style",
+    "format",
+    "readability",
+    "coding convention",
+    "trình bày",
+    "định dạng",
 ]
 
 
 @dataclass
 class CriterionMatch:
     """Represents a single rubric criterion matched to detected algorithms."""
+
     criterion_name: str
     matched_algorithms: List[str] = field(default_factory=list)
     confidence: float = 0.0  # 0.0 - 1.0
@@ -100,6 +126,7 @@ class CriterionMatch:
 @dataclass
 class MatchingResult:
     """Result of criteria matching for a single submission."""
+
     matched_criteria: List[CriterionMatch] = field(default_factory=list)
     unmatched_criteria: List[str] = field(default_factory=list)
     matched_exercise: Optional[Dict[str, str]] = None
@@ -135,9 +162,10 @@ class CriteriaMatcher:
     def _normalize(text: str) -> str:
         """Normalize text for comparison (handles Vietnamese diacritics)."""
         import unicodedata
+
         text = text.lower().strip()
         # Handle Vietnamese special characters that don't decompose properly
-        text = text.replace('đ', 'd').replace('Đ', 'd')
+        text = text.replace("đ", "d").replace("Đ", "d")
         text = unicodedata.normalize("NFKD", text)
         text = "".join(ch for ch in text if not unicodedata.combining(ch))
         return re.sub(r"\s+", " ", text)
@@ -269,31 +297,37 @@ class CriteriaMatcher:
         # Always create test criterion
         test_passed = sum(1 for t in test_results if t.get("passed"))
         test_total = len(test_results)
-        result.matched_criteria.append(CriterionMatch(
-            criterion_name="Kiểm thử (Testing)",
-            matched_algorithms=["_test_execution"],
-            confidence=1.0,
-            max_score=4.0,
-            description=f"Đạt {test_passed}/{test_total} test case",
-        ))
+        result.matched_criteria.append(
+            CriterionMatch(
+                criterion_name="Kiểm thử (Testing)",
+                matched_algorithms=["_test_execution"],
+                confidence=1.0,
+                max_score=4.0,
+                description=f"Đạt {test_passed}/{test_total} test case",
+            )
+        )
 
         # DSA criterion if algorithms detected
         if detected_algorithms:
-            result.matched_criteria.append(CriterionMatch(
-                criterion_name="Cấu trúc dữ liệu & Thuật toán",
-                matched_algorithms=detected_algorithms,
-                confidence=0.8,
-                max_score=6.0,
-                description=f"Phát hiện: {', '.join(detected_algorithms)}",
-            ))
+            result.matched_criteria.append(
+                CriterionMatch(
+                    criterion_name="Cấu trúc dữ liệu & Thuật toán",
+                    matched_algorithms=detected_algorithms,
+                    confidence=0.8,
+                    max_score=6.0,
+                    description=f"Phát hiện: {', '.join(detected_algorithms)}",
+                )
+            )
         else:
-            result.matched_criteria.append(CriterionMatch(
-                criterion_name="Cấu trúc dữ liệu & Thuật toán",
-                matched_algorithms=["_none"],
-                confidence=0.0,
-                max_score=6.0,
-                description="Không phát hiện thuật toán đáng kể",
-            ))
+            result.matched_criteria.append(
+                CriterionMatch(
+                    criterion_name="Cấu trúc dữ liệu & Thuật toán",
+                    matched_algorithms=["_none"],
+                    confidence=0.0,
+                    max_score=6.0,
+                    description="Không phát hiện thuật toán đáng kể",
+                )
+            )
 
         return result
 
@@ -327,15 +361,17 @@ class CriteriaMatcher:
                 match, ast_breakdown, test_ratio, test_results
             )
             matched_name_set.add(self._normalize(match.criterion_name))
-            criteria_scores.append({
-                "criterion": match.criterion_name,
-                "earned": round(earned, 2),
-                "max": round(match.max_score, 2),
-                "feedback": feedback,
-                "evidence": evidence,
-                "source_text": match.source_text,
-                "criteria_code": match.criteria_code,
-            })
+            criteria_scores.append(
+                {
+                    "criterion": match.criterion_name,
+                    "earned": round(earned, 2),
+                    "max": round(match.max_score, 2),
+                    "feedback": feedback,
+                    "evidence": evidence,
+                    "source_text": match.source_text,
+                    "criteria_code": match.criteria_code,
+                }
+            )
 
         # Preserve full DB rubric visibility: unmatched criteria are explicit with 0 score.
         for item in rubric_criteria or []:
@@ -355,15 +391,19 @@ class CriteriaMatcher:
             if max_score <= 0:
                 continue
 
-            criteria_scores.append({
-                "criterion": name,
-                "earned": 0.0,
-                "max": round(max_score, 2),
-                "feedback": "Chưa có bằng chứng triển khai tiêu chí này trong bài nộp.",
-                "evidence": "Không tìm thấy dấu hiệu phù hợp trong AST/test results.",
-                "source_text": item.get("source_text") or name,
-                "criteria_code": item.get("criteria_code") or item.get("criterion_code") or "",
-            })
+            criteria_scores.append(
+                {
+                    "criterion": name,
+                    "earned": 0.0,
+                    "max": round(max_score, 2),
+                    "feedback": "Chưa có bằng chứng triển khai tiêu chí này trong bài nộp.",
+                    "evidence": "Không tìm thấy dấu hiệu phù hợp trong AST/test results.",
+                    "source_text": item.get("source_text") or name,
+                    "criteria_code": item.get("criteria_code")
+                    or item.get("criterion_code")
+                    or "",
+                }
+            )
 
         return criteria_scores
 

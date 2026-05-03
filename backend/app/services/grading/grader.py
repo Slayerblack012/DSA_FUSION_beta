@@ -36,7 +36,9 @@ def _create_safety_failure_result(filename: str, violations: List[Dict]) -> Dict
     }
 
 
-def _create_syntax_error_result(filename: str, error: SyntaxError, runtime_ms: float) -> Dict:
+def _create_syntax_error_result(
+    filename: str, error: SyntaxError, runtime_ms: float
+) -> Dict:
     """Create result for code with syntax errors."""
     return {
         "filename": filename,
@@ -61,7 +63,9 @@ def generate_fingerprint(nodes: List[str]) -> Set:
 class DSALightningGrader:
     """Main grader — coordinates all scoring components."""
 
-    def grade_file_ultra_fast(self, code: str, filename: str, topic: str = None) -> Dict:
+    def grade_file_ultra_fast(
+        self, code: str, filename: str, topic: str = None
+    ) -> Dict:
         """Grade a Python file using AST analysis and dynamic testing."""
         start_time = time.time()
         code_lower = code.lower()
@@ -76,7 +80,9 @@ class DSALightningGrader:
         try:
             tree = ast.parse(code, filename or "<string>")
         except SyntaxError as e:
-            return _create_syntax_error_result(filename, e, (time.time() - start_time) * 1000)
+            return _create_syntax_error_result(
+                filename, e, (time.time() - start_time) * 1000
+            )
 
         # Step 3: Extract AST features
         extractor = ASTFeatureExtractor()
@@ -135,8 +141,7 @@ class DSALightningGrader:
         fingerprint = kwargs["fingerprint"]
         if isinstance(fingerprint, (set, frozenset)):
             fingerprint = [
-                list(item) if isinstance(item, tuple) else item
-                for item in fingerprint
+                list(item) if isinstance(item, tuple) else item for item in fingerprint
             ]
 
         has_tle = kwargs.get("has_tle", False)

@@ -2,9 +2,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from enum import Enum
 
+
 @dataclass
 class GradingResult:
     """Standardized grading result structure."""
+
     filename: str
     total_score: float
     status: str  # AC, WA, FLAG, TLE, RE
@@ -29,15 +31,25 @@ class GradingResult:
     student_id: Optional[str] = None
     test_results: Optional[List[Dict[str, Any]]] = None  # Detailed test case results
     optimized_code: Optional[str] = None  # AI-generated refactored version
-    complexity_curve: Optional[List[Dict[str, Any]]] = None  # Big-O visualization points
-    agent_trace: Optional[List[Dict[str, Any]]] = None  # Observe/repair/verify/fallback timeline
+    complexity_curve: Optional[List[Dict[str, Any]]] = (
+        None  # Big-O visualization points
+    )
+    agent_trace: Optional[List[Dict[str, Any]]] = (
+        None  # Observe/repair/verify/fallback timeline
+    )
     score_proof: Optional[Dict[str, Any]] = None  # Auditable weighted-score evidence
-    criteria_scores: Optional[List[Dict[str, Any]]] = None  # AI rubric scores per criterion
-    rubric_snapshot: Optional[Dict[str, Any]] = None  # Frozen rubric profile used for this submission
+    criteria_scores: Optional[List[Dict[str, Any]]] = (
+        None  # AI rubric scores per criterion
+    )
+    rubric_snapshot: Optional[Dict[str, Any]] = (
+        None  # Frozen rubric profile used for this submission
+    )
+
 
 @dataclass
 class AIResponse:
     """Standardized AI response structure."""
+
     content: str
     model: str
     usage: Dict[str, int]
@@ -45,9 +57,11 @@ class AIResponse:
     success: bool
     error_message: Optional[str] = None
 
+
 @dataclass
 class GradingRequest:
     """Standardized grading request structure."""
+
     code: str
     filename: str
     topic: Optional[str]
@@ -56,13 +70,13 @@ class GradingRequest:
     test_cases: Optional[List[Dict[str, Any]]] = None
 
 
-
 class EventType(str, Enum):
     RESULT_SAVED = "result_saved"
     BATCH_RESULTS_SAVED = "batch_results_saved"
     JOB_STARTED = "job_started"
     JOB_COMPLETED = "job_completed"
     PLAGIARISM_DETECTED = "plagiarism_detected"
+
 
 @dataclass
 class Event:

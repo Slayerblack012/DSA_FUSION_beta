@@ -84,7 +84,9 @@ class RateLimiter:
             self._redis_available = True
             logger.info("Redis-backed rate limiting enabled")
         except Exception as exc:
-            logger.warning("Redis rate limiter unavailable, using in-memory fallback: %s", exc)
+            logger.warning(
+                "Redis rate limiter unavailable, using in-memory fallback: %s", exc
+            )
             self._redis_client = None
             self._redis_script = None
             self._redis_available = False
@@ -100,7 +102,8 @@ class RateLimiter:
 
         with self._lock:
             stale_ips = [
-                ip for ip, times in self.requests.items()
+                ip
+                for ip, times in self.requests.items()
                 if not times or max(times) < now - 3600
             ]
             for ip in stale_ips:
@@ -130,7 +133,9 @@ class RateLimiter:
                     logger.warning("Rate limit exceeded for %s", client_ip)
                 return allowed, retry_after
             except Exception as exc:
-                logger.warning("Redis rate limit check failed, falling back to memory: %s", exc)
+                logger.warning(
+                    "Redis rate limit check failed, falling back to memory: %s", exc
+                )
                 self._redis_available = False
 
         self._cleanup()  # Periodic stale IP cleanup
@@ -140,7 +145,9 @@ class RateLimiter:
 
         with self._lock:
             # Clean old requests
-            self.requests[client_ip] = [t for t in self.requests[client_ip] if t > hour_ago]
+            self.requests[client_ip] = [
+                t for t in self.requests[client_ip] if t > hour_ago
+            ]
 
             # Check limits
             recent = self.requests[client_ip]

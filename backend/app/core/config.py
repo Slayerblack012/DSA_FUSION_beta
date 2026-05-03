@@ -1,4 +1,4 @@
-﻿"""Backward-compatible config exports built on top of dsa_config."""
+"""Backward-compatible config exports built on top of dsa_config."""
 
 from app.core.dsa_config import SETTINGS, check_and_log_config, validate_config
 

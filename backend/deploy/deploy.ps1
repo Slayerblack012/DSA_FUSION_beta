@@ -49,6 +49,8 @@ if (!(Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir | Out-Null
 }
 
+New-Item -ItemType Directory -Path "$InstallDir\logs" -Force | Out-Null
+
 Set-Location $InstallDir
 
 # Copy application files
@@ -99,6 +101,7 @@ if ($CreateService) {
     .\nssm.exe install $serviceName "C:\DSA_AutoGrader\venv\Scripts\python.exe"
     .\nssm.exe set $serviceName ApplicationParameters "-m uvicorn app.main:app --host 0.0.0.0 --port 8000"
     .\nssm.exe set $serviceName AppDirectory $InstallDir
+    .\nssm.exe set $serviceName AppEnvironmentExtra "PYTHONDONTWRITEBYTECODE=1"
     .\nssm.exe set $serviceName AppStdout "$InstallDir\logs\service.log"
     .\nssm.exe set $serviceName AppStderr "$InstallDir\logs\service.error.log"
     .\nssm.exe set $serviceName AppRotateFiles 1
@@ -117,6 +120,7 @@ $startupScript = @"
 # DSA AutoGrader Startup Script
 cd $InstallDir
 .\venv\Scripts\Activate.ps1
+$env:PYTHONDONTWRITEBYTECODE = '1'
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 "@
 
@@ -140,6 +144,9 @@ $webConfig = @"
                   stdoutLogEnabled="true"
                   stdoutLogFile=".\logs\stdout.log"
                   startupTimeLimit="60" />
+        <environmentVariables>
+            <environmentVariable name="PYTHONDONTWRITEBYTECODE" value="1" />
+        </environmentVariables>
   </system.webServer>
 </configuration>
 "@

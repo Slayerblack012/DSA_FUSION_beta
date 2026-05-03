@@ -42,7 +42,11 @@ class ASTFeatureExtractor(ast.NodeVisitor):
         """Visit a child node with updated depth metrics."""
         is_loop = isinstance(node, (ast.For, ast.While))
         new_loop_depth = loop_depth + 1 if is_loop else loop_depth
-        new_depth = depth + 1 if isinstance(node, (ast.For, ast.While, ast.FunctionDef, ast.If)) else depth
+        new_depth = (
+            depth + 1
+            if isinstance(node, (ast.For, ast.While, ast.FunctionDef, ast.If))
+            else depth
+        )
         self._visit_node(node, new_depth, new_loop_depth)
 
     def _update_depth_metrics(self, depth: int, loop_depth: int) -> None:
@@ -169,7 +173,7 @@ class ASTFeatureExtractor(ast.NodeVisitor):
                 name = node.func.id
             elif isinstance(node.func, ast.Attribute):
                 name = node.func.attr
-            
+
             if name in ["sort", "sorted", "heappush", "heappop"]:
                 self.features.has_greedy_pattern = True
 
@@ -179,13 +183,13 @@ class ASTFeatureExtractor(ast.NodeVisitor):
             self.features.long_func_count += 1
         if node.returns:
             self.features.has_type_hints = True
-        
+
         recursive_calls = []
         for child in ast.walk(node):
             if isinstance(child, ast.Call):
                 if isinstance(child.func, ast.Name) and child.func.id == node.name:
                     recursive_calls.append(child)
-        
+
         if recursive_calls:
             self.features.has_recursion = True
             if len(recursive_calls) >= 2:

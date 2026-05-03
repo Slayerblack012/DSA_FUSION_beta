@@ -147,6 +147,7 @@ Type=notify
 User=${APP_USER}
 Group=${APP_USER}
 WorkingDirectory=${APP_DIR}
+Environment=PYTHONDONTWRITEBYTECODE=1
 Environment="PATH=${PYTHON_VENV}/bin"
 ExecStart=${PYTHON_VENV}/bin/gunicorn app.main:app \\
     --workers 4 \\

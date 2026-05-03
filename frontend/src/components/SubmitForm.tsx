@@ -7,10 +7,8 @@ import {
   BadgeCheck,
   FileCode2,
   ClipboardList,
-  ShieldCheck,
   FileText,
   Trash2,
-  AlertTriangle,
 } from "lucide-react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import toast from "react-hot-toast";
@@ -36,6 +34,19 @@ interface SubmitFormProps {
 type DisplayCriterion = {
   name: string;
   maxScore?: number | string;
+};
+
+type AssignmentDetail = {
+  title?: string;
+  description?: string;
+  criteria?: unknown;
+};
+
+type LatestSummary = {
+  totalTimeMs?: number;
+  total_time_ms?: number;
+  totalScore?: number;
+  total_score?: number;
 };
 
 const isJunkCriterionName = (value: string) => {
@@ -152,20 +163,23 @@ export const SubmitForm = ({
   latest,
 }: SubmitFormProps) => {
   const [assignmentCodes, setAssignmentCodes] = React.useState<string[]>([]);
-  const [selectedAssignmentDetail, setSelectedAssignmentDetail] = React.useState<any>(null);
+  const [selectedAssignmentDetail, setSelectedAssignmentDetail] = React.useState<AssignmentDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = React.useState(false);
   const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim() || "http://127.0.0.1:8000";
   const API_BASE_URL = RAW_API_BASE_URL.replace("localhost", "127.0.0.1");
+  const latestSummary = latest && typeof latest === "object" ? (latest as LatestSummary) : null;
+  const latestTimeMs = latestSummary?.totalTimeMs ?? latestSummary?.total_time_ms;
+  const latestScore = latestSummary?.totalScore ?? latestSummary?.total_score;
   React.useEffect(() => {
     // Dùng biến API_BASE_URL để nó tự động đổi sang URL của Render khi deploy
     fetch(`${API_BASE_URL}/submissions/assignments/codes`)
       .then((res) => res.json())
       .then((data) => setAssignmentCodes(data))
       .catch(() => {});
-  }, []);
+  }, [API_BASE_URL]);
 
   React.useEffect(() => {
-    const code = (studentInfo as any).assignmentCode;
+    const code = studentInfo.assignmentCode;
     if (!code) {
       setSelectedAssignmentDetail(null);
       return;
@@ -183,7 +197,7 @@ export const SubmitForm = ({
       .finally(() => {
         setIsLoadingDetail(false);
       });
-  }, [studentInfo, API_BASE_URL]);
+  }, [studentInfo.assignmentCode, API_BASE_URL]);
 
   const visibleRubricCriteria = React.useMemo(
     () => normalizeRubricCriteria(selectedAssignmentDetail?.criteria),
@@ -252,6 +266,21 @@ export const SubmitForm = ({
     },
     maxSize: 10 * 1024 * 1024,
   });
+
+  const getSafeRootProps = () => {
+    const {
+      onAnimationStart,
+      onDragStart,
+      onDragEnd,
+      onDrag,
+      ...props
+    } = getRootProps();
+    void onAnimationStart;
+    void onDragStart;
+    void onDragEnd;
+    void onDrag;
+    return props;
+  };
 
   const handleClearAllFiles = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -322,15 +351,13 @@ export const SubmitForm = ({
               { k: "Lượt nộp", v: String(resultsHistory.length) },
               {
                 k: "Độ trễ TB",
-                v: latest
-                  ? `${(
-                      ((latest as any).totalTimeMs || (latest as any).total_time_ms || 0) / 1000
-                    ).toFixed(1)}s`
+                v: latestSummary
+                  ? `${((latestTimeMs || 0) / 1000).toFixed(1)}s`
                   : "-",
               },
               {
                 k: "Điểm gần nhất",
-                v: latest && ((latest as any).totalScore ?? (latest as any).total_score) != null ? ((latest as any).totalScore ?? (latest as any).total_score)?.toFixed(1) : "-",
+                v: latestScore != null ? latestScore.toFixed(1) : "-",
               },
             ].map((metric, i) => (
               <motion.div
@@ -393,8 +420,8 @@ export const SubmitForm = ({
               <div>
               <label className="label text-blue-600 font-bold">Chọn mã bài tập</label>
               <select
-                value={(studentInfo as any).assignmentCode || ""}
-                onChange={(e) => setStudentInfo({ ...studentInfo, ["assignmentCode" as any]: e.target.value })}
+                value={studentInfo.assignmentCode || ""}
+                onChange={(e) => setStudentInfo({ ...studentInfo, assignmentCode: e.target.value })}
                 className="input appearance-none bg-white border-blue-200 focus:ring-blue-600 cursor-pointer transition-all focus:scale-[1.01]"
               >
                 <option value="">-- Click để chọn mã bài tập --</option>
@@ -441,7 +468,7 @@ export const SubmitForm = ({
                     <ol className="space-y-1.5 max-h-48 overflow-y-auto thin-scroll pr-1">
                       {visibleRubricCriteria.length > 0 ? (
                         visibleRubricCriteria.map((c, index) => (
-                        <motion.div 
+                        <motion.li 
                           key={index} 
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -459,7 +486,7 @@ export const SubmitForm = ({
                               {c.maxScore}đ
                             </span>
                           )}
-                        </motion.div>
+                        </motion.li>
                       ))
                       ) : (
                         <p className="text-xs text-gray-400 italic">Dựa vào phân tích logic & thuật toán DSA tổng quát.</p>
@@ -486,10 +513,7 @@ export const SubmitForm = ({
         <div className="col-span-12 lg:col-span-6 flex flex-col gap-5">
           <motion.div
             variants={{ hidden: { opacity: 0, scale: 0.98 }, show: { opacity: 1, scale: 1 } }}
-            {...(() => {
-              const { onAnimationStart, onDragStart, onDragEnd, onDrag, ...props } = getRootProps();
-              return props;
-            })()}
+            {...getSafeRootProps()}
             className="flex-1 card border-dashed border-2 bg-white flex flex-col items-center justify-center p-8 md:p-12 lg:p-14 min-h-[360px] lg:min-h-[430px] cursor-pointer group hover:border-blue-300 hover:bg-blue-50/30 transition-all"
           >
             <input {...getInputProps()} />

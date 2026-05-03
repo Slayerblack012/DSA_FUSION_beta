@@ -1,10 +1,10 @@
 import React from "react";
-import toast from "react-hot-toast";
-import { Brain, Settings, Trash2, AlertCircle } from "lucide-react";
+import toast, { type Toast } from "react-hot-toast";
+import { Brain, Settings, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface SystemToastProps {
-  t: any;
+  t: Toast;
   message: string;
   variant?: "default" | "destructive" | "success" | "warning";
 }

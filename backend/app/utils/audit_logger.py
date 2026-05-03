@@ -68,6 +68,7 @@ def init_audit_logger(
 
     # File handler with rotation
     from logging.handlers import RotatingFileHandler
+
     file_handler = RotatingFileHandler(
         log_path,
         maxBytes=max_bytes,

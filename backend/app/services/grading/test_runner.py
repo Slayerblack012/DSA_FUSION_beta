@@ -39,7 +39,7 @@ def run_dynamic_tests(
 ) -> Tuple[int, List[str], List[Dict]]:
     """Run test cases and return (score, notes, test_results)."""
     from app.utils.sandbox import run_python_sandbox_batch
-    
+
     test_cases = get_test_cases(topic)
     if not test_cases:
         return 0, [], []
@@ -47,10 +47,10 @@ def run_dynamic_tests(
     # Prepare batch execution
     inputs = [tc["input"] for tc in test_cases]
     timeout = _get_test_timeout(filename)
-    
+
     # Run all test cases in ONE process instead of many (Massive performance boost)
     batch_results = run_python_sandbox_batch(code, inputs, timeout_per_case=timeout)
-    
+
     notes = [f"--- Running {len(test_cases)} test cases in batch mode ---"]
     passed = 0
     test_results = []
@@ -59,33 +59,35 @@ def run_dynamic_tests(
         result = batch_results[i] if i < len(batch_results) else None
         if not result:
             continue
-            
+
         actual = result.output.strip() if result.output else ""
         expected = tc["expected"]
         is_passed = result.success and actual == expected
 
         # Store detailed results
-        test_results.append({
-            "testcase_id": tc.get("id", tc["name"]),
-            "testcase_name": tc["name"],
-            "input": tc["input"],
-            "expected_output": expected,
-            "actual_output": actual,
-            "error": result.error if not result.success else "",
-            "time_ms": round(result.time_used * 1000, 2),
-            "memory_kb": round(result.memory_used, 2),
-            "passed": is_passed,
-            "timeout": result.timeout,
-            "runtime_error": not result.success and not result.timeout
-        })
+        test_results.append(
+            {
+                "testcase_id": tc.get("id", tc["name"]),
+                "testcase_name": tc["name"],
+                "input": tc["input"],
+                "expected_output": expected,
+                "actual_output": actual,
+                "error": result.error if not result.success else "",
+                "time_ms": round(result.time_used * 1000, 2),
+                "memory_kb": round(result.memory_used, 2),
+                "passed": is_passed,
+                "timeout": result.timeout,
+                "runtime_error": not result.success and not result.timeout,
+            }
+        )
 
         if is_passed:
             passed += 1
-            if len(test_cases) <= 5: # Only log individual successes for small batches
+            if len(test_cases) <= 5:  # Only log individual successes for small batches
                 notes.append(f"✓ {tc['name']}: PASSED")
         elif not result.success:
             notes.append(_format_runtime_error(tc, result))
-            # In batch mode, we continue to see if other tests pass, 
+            # In batch mode, we continue to see if other tests pass,
             # unless it was a fatal process crash (which sandbox handles)
         else:
             notes.append(_format_wrong_output(tc, result))
@@ -119,7 +121,7 @@ def _get_test_timeout(filename: str) -> int:
 
 def _format_runtime_error(tc: Dict, result: Any) -> str:
     """Format runtime error message."""
-    err_msg = result.error if hasattr(result, 'error') else "Unknown Error"
+    err_msg = result.error if hasattr(result, "error") else "Unknown Error"
     line_match = re.search(r"line (\d+)", err_msg)
     line_info = f" at line {line_match.group(1)}" if line_match else ""
     err_type = err_msg.split("\n")[-1] if err_msg else "Unknown Error"
@@ -132,7 +134,7 @@ def _format_wrong_output(tc: Dict, result: Any) -> str:
     if len(inp_short) > 20:
         inp_short = inp_short[:20] + "..."
 
-    actual = result.output.strip() if hasattr(result, 'output') else ""
+    actual = result.output.strip() if hasattr(result, "output") else ""
     return (
         f"Wrong output at '{tc['name']}' (Input: {inp_short}): "
         f"Expected '{tc['expected']}', but got '{actual}'"
