@@ -41,6 +41,10 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
+      - name: Check for dependency conflicts
+        run: |
+          python -m pip check || true
+
       - name: Ruff lint (if installed)
         run: |
           if python -c "import pkgutil, sys; sys.exit(0 if pkgutil.find_loader('ruff') else 1)"; then
@@ -83,7 +87,8 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: |
+          npm ci --prefer-offline --no-audit --no-fund
 
       - name: Lint frontend (if available)
         run: npm run lint --if-present || true
