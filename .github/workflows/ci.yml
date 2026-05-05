@@ -76,7 +76,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Cache node modules
         uses: actions/cache@v4
@@ -88,7 +88,7 @@ jobs:
 
       - name: Install frontend dependencies
         run: |
-          npm ci --prefer-offline --no-audit --no-fund
+          npm install --prefer-offline --no-audit --no-fund
 
       - name: Lint frontend (if available)
         run: npm run lint --if-present || true
