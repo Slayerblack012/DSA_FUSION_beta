@@ -31,6 +31,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.14",
     "tailwindcss": "^4",
+    "autoprefixer": "^10",
     "typescript": "^5"
   }
 }
