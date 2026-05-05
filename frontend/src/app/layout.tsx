@@ -24,9 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <body
-        className={`${manrope.variable} ${spaceGrotesk.variable} antialiased`}
-      >
+      <body className={`${manrope.variable} ${spaceGrotesk.variable} antialiased`}>
         {children}
       </body>
     </html>

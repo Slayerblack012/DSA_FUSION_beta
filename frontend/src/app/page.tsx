@@ -220,22 +220,36 @@ export default function EduPortal() {
 
     if (systemSettings.enableNotifications) {
       toast.promise(submissionPromise(), {
-        loading: "AI đang đọc bài, đối chiếu rubric và tạo feedback chi tiết...",
+        loading: (
+          <div className="surface-glass enterprise-panel flex items-center gap-3 rounded-2xl px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[13px] font-black uppercase tracking-[0.18em] text-slate-900">Đang chấm bài</p>
+              <p className="text-[12px] text-slate-500">AI đang đọc bài, đối chiếu rubric và tạo feedback chi tiết...</p>
+            </div>
+          </div>
+        ),
         success: (data) => (
-          <div className="flex flex-col gap-1.5 p-1">
-            <span className="font-black text-[14px] text-emerald-700 uppercase tracking-tight">Chấm điểm hoàn tất</span>
-            <div className="my-0.5 h-px w-full bg-emerald-100" />
+          <div className="surface-glass enterprise-panel flex flex-col gap-2 rounded-2xl px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
+            <span className="font-black text-[13px] uppercase tracking-[0.18em] text-emerald-700">Chấm điểm hoàn tất</span>
+            <div className="h-px w-full bg-emerald-100" />
             <span className="text-[13px] font-bold text-slate-700">
               Điểm tổng kết: <span className="text-lg text-emerald-600">{data.total_score?.toFixed(1) ?? "?"}</span>/10
             </span>
           </div>
         ),
         error: (error) => (
-          <div className="flex flex-col gap-1 p-1">
-            <span className="font-black text-[14px] uppercase tracking-tight text-rose-700">Lỗi chấm điểm</span>
+          <div className="surface-glass enterprise-panel flex flex-col gap-1 rounded-2xl px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
+            <span className="font-black text-[13px] uppercase tracking-[0.18em] text-rose-700">Lỗi chấm điểm</span>
             <span className="text-[12px] font-medium leading-snug text-slate-500">{error.message}</span>
           </div>
         ),
+      }, {
+        duration: TOAST_DURATION_MS,
+        removeDelay: 180,
+        position: "top-right",
       }).finally(() => setIsSubmitting(false));
       return;
     }
@@ -247,9 +261,11 @@ export default function EduPortal() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white">
-        <div className="mb-5 h-9 w-9 animate-spin rounded-full border-[3px] border-gray-100 border-t-blue-600" />
-        <p className="text-sm font-medium text-gray-500">Đang khởi tạo hệ thống...</p>
+      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(248,251,255,0.96),rgba(244,247,251,0.98))] backdrop-blur-sm">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[0_16px_40px_rgba(15,23,42,0.12)]">
+          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-blue-100 border-t-blue-600" />
+        </div>
+        <p className="text-sm font-medium text-slate-500">Đang khởi tạo hệ thống...</p>
       </div>
     );
   }
@@ -258,7 +274,17 @@ export default function EduPortal() {
 
   return (
     <div className="app-bg flex min-h-screen flex-col font-sans text-gray-900">
-      <Toaster position="top-right" toastOptions={{ duration: TOAST_DURATION_MS }} />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: TOAST_DURATION_MS,
+          style: {
+            background: "transparent",
+            boxShadow: "none",
+            padding: 0,
+          },
+        }}
+      />
       <AnimatePresence>{isSubmitting && <GradingOverlay />}</AnimatePresence>
 
       <AppHeader activeTab={activeTab} setActiveTab={setActiveTab} studentName={studentInfo.name} />
@@ -273,10 +299,11 @@ export default function EduPortal() {
               {activeTab === "submit" && (
                 <motion.div
                   key="submit"
-                  initial={{ opacity: 0, y: 10 }}
+                  className="motion-perf"
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
                 >
                   <SubmitForm
                     studentInfo={studentInfo}
@@ -297,10 +324,11 @@ export default function EduPortal() {
               {activeTab === "history" && (
                 <motion.div
                   key="history"
-                  initial={{ opacity: 0, y: 10 }}
+                  className="motion-perf"
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
                 >
                   <ResultsTab latest={latest} studentInfo={studentInfo} onBackToSubmit={() => setActiveTab("submit")} />
                 </motion.div>
@@ -309,10 +337,11 @@ export default function EduPortal() {
               {activeTab === "settings" && (
                 <motion.div
                   key="settings"
-                  initial={{ opacity: 0, y: 10 }}
+                  className="motion-perf"
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
                 >
                   <SettingsTab
                     settings={systemSettings}

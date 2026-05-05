@@ -1128,7 +1128,7 @@ class GradingService:
     def _apply_rubric_to_result(
         self, result: GradingResult, rubric_profile: Optional[Dict[str, Any]]
     ) -> GradingResult:
-        """Sửa lỗi: Hiện tiêu đề, xóa thanh rác 10/10, hiện box bằng chứng."""
+        """Sửa lỗi: Hiện tiêu đề, bóc tách chuỗi JSON DB, gán điểm chuẩn xác."""
         if not rubric_profile:
             return result
 
@@ -1138,35 +1138,34 @@ class GradingService:
         result.has_rubric = True
 
         ai_raw_scores = getattr(result, "criteria_scores", None) or []
-        db_criteria = rubric_profile.get("criteria", [])
+        
+        # --- SỬA LỖI Ở ĐÂY: Sử dụng _extract_rubric_items để đảm bảo mảng đã được parse sạch ---
+        # Import hàm giải mã JSON từ ai_grading_service
+        from app.services.ai_grading_service import AIGradingService
+        db_criteria_parsed = AIGradingService._extract_rubric_items(rubric_profile)
 
-        if db_criteria:
+        if db_criteria_parsed:
             criteria_results = []
             total_points = 0.0
             actual_total_weight = 0.0
 
             used_ai_indices = set()
 
-            # 2. CHỈ LẤY TIÊU CHÍ DB: Duyệt chính xác theo danh sách SQL
-            for i, db_item in enumerate(db_criteria):
-                db_name = db_item.get("name") or db_item.get("criteria_name") or ""
-                db_max = float(db_item.get("max_score") or 2.5)
+            # 2. CHỈ LẤY TIÊU CHÍ ĐÃ ĐƯỢC BÓC TÁCH (PARSED)
+            for db_item in db_criteria_parsed:
+                db_name = db_item.get("name", "")
+                db_max = float(db_item.get("max", 2.5))
 
                 matched_ai = None
                 db_norm = self._normalize_text(db_name)
 
-                # Khớp điểm từ AI (Loại bỏ các dòng summary rác)
+                # Khớp điểm từ AI
                 best_match_idx = -1
                 for idx, ai_item in enumerate(ai_raw_scores):
                     if idx in used_ai_indices:
                         continue
                     ai_name = self._normalize_text(ai_item.get("criterion", ""))
-                    if ai_name and ai_name not in [
-                        "criterion",
-                        "total",
-                        "score",
-                        "normalized",
-                    ]:
+                    if ai_name and ai_name not in ["criterion", "total", "score", "normalized"]:
                         if ai_name == db_norm:
                             best_match_idx = idx
                             break
@@ -1211,7 +1210,7 @@ class GradingService:
             result.status = "AC" if result.total_score >= 5.0 else "WA"
             result.criteria_scores = criteria_results
 
-            # 4. HIỆN BOX BẰNG CHỨNG: Cấp đúng key criteria_results cho Frontend
+            # 4. HIỆN BOX BẰNG CHỨNG
             if not isinstance(result.score_proof, dict):
                 result.score_proof = {}
             result.score_proof["rubric_adjustment"] = {

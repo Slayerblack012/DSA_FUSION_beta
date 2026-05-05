@@ -731,36 +731,27 @@ OUTPUT_JSON (chỉ JSON):
     def _format_rubric_context(rubric_context: Optional[Dict[str, Any]]) -> str:
         """
         Render rubric criteria from DB for AI prompt guidance.
-
-        Optimization: Keep the rubric compact, but include all criteria so the AI
-        can score directly against the database rubric.
         """
         if not rubric_context:
             return "No rubric available. Grade by standard DSA criteria."
 
-        criteria = rubric_context.get("criteria", []) or []
-        if not criteria:
+        # Dùng hàm _extract_rubric_items để lấy mảng đã được parse sạch sẽ
+        rubric_items = AIGradingService._extract_rubric_items(rubric_context)
+        if not rubric_items:
             return "No rubric criteria. Grade by standard DSA criteria."
 
+        # Sắp xếp theo điểm giảm dần
         sorted_criteria = sorted(
-            criteria, key=lambda c: c.get("max_score", 0), reverse=True
+            rubric_items, key=lambda c: c.get("max", 0), reverse=True
         )
 
         lines = [
             "BẮT BUỘC: Chỉ chấm điểm theo các tiêu chí dưới đây (giữ nguyên tên tiêu chí):"
         ]
         for idx, item in enumerate(sorted_criteria, start=1):
-            name = (
-                item.get("name") or item.get("criteria_name") or "Criterion"
-            ).strip()
-            max_score = item.get("max_score", 0)
-            description = (item.get("description") or "").strip()
-            if len(description) > 150:  # Increased from 60
-                description = description[:147] + "..."
-
+            name = item.get("name", "Criterion")
+            max_score = item.get("max", 0)
             lines.append(f'{idx}. TIÊU CHÍ: "{name}" | ĐIỂM TỐI ĐA: {max_score}')
-            if description:
-                lines.append(f"   Mô tả yêu cầu: {description}")
 
         return "\n".join(lines)
 
@@ -869,15 +860,60 @@ OUTPUT_JSON (chỉ JSON):
             name = str(item.get("name") or item.get("criteria_name") or "").strip()
             if not name:
                 continue
+                
+            # 1. Parse chuỗi JSON mảng (nếu DB lưu dạng mảng [...])
+            if name.startswith("[") and name.endswith("]"):
+                try:
+                    import json
+                    parsed_arr = json.loads(name)
+                    if isinstance(parsed_arr, list):
+                        for p_item in parsed_arr:
+                            if isinstance(p_item, dict) and "name" in p_item:
+                                p_name = str(p_item.get("name", "")).strip()
+                                try:
+                                    p_max = float(p_item.get("points", p_item.get("max_score", 0)) or 0)
+                                except (ValueError, TypeError):
+                                    p_max = 0.0
+                                items.append({"name": p_name, "max": max(0.0, p_max)})
+                        continue
+                except Exception as e:
+                    import logging
+                    logging.warning(f"Lỗi parse chuỗi JSON rubric: {e}")
+
+            # 2. MỚI: Parse định dạng chuỗi dính chùm "Tiêu chí 1,points:25,Tiêu chí 2,points:25"
+            if "points:" in name.lower() and "name:" not in name.lower():
+                import re
+                # Cắt chuỗi dựa trên mẫu (,points: 25)
+                matches = re.finditer(r"(.*?)(?:,\s*points\s*:\s*(\d+(?:\.\d+)?))", name, flags=re.IGNORECASE)
+                packed_items = []
+                for match in matches:
+                    c_name = match.group(1).strip()
+                    # Loại bỏ dấu phẩy/chấm phẩy thừa ở đầu chuỗi (nếu có) do quá trình cắt
+                    c_name = re.sub(r'^[,;\s]+', '', c_name)
+                    if c_name:
+                        try:
+                            c_max = float(match.group(2))
+                        except (ValueError, TypeError):
+                            c_max = 0.0
+                        packed_items.append({"name": c_name, "max": max(0.0, c_max)})
+                
+                if packed_items:
+                    items.extend(packed_items)
+                    continue
+
+            # 3. Fallback cho các định dạng cũ khác
             try:
-                max_score = float(item.get("max_score", 0) or 0)
+                max_score = float(item.get("max_score", 0) or item.get("points", 0))
             except (TypeError, ValueError):
                 max_score = 0.0
+            
             packed_items = AIGradingService._split_packed_rubric_name(name, max_score)
             if packed_items:
                 items.extend(packed_items)
                 continue
+                
             items.append({"name": name, "max": max(0.0, max_score)})
+            
         return items
 
     @classmethod

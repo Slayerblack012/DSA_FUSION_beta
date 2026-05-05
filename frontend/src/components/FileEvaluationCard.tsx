@@ -35,6 +35,15 @@ type ScoreProofWithSnakeCase = ScoreProof & {
   };
 };
 
+type CriterionLike = {
+  criterion?: string;
+  sourceText?: string;
+  source_text?: string;
+  name?: string;
+  earned?: number;
+  total?: number;
+};
+
 export const FileEvaluationCard = ({
   file,
   isExpanded,
@@ -42,7 +51,7 @@ export const FileEvaluationCard = ({
 }: FileEvaluationCardProps) => {
   
   // Small sub-component to render a single criterion with collapse/expand
-  const CriterionRow = ({ criterion }: { criterion: any }) => {
+  const CriterionRow = ({ criterion }: { criterion: CriterionLike }) => {
     const [expanded, setExpanded] = React.useState(false);
     const label = (criterion.sourceText || criterion.criterion || "").replace(/^['\"]|['\"]$/g, "").trim();
     const cleaned = label.replace(/\s+/g, " ");
@@ -54,7 +63,7 @@ export const FileEvaluationCard = ({
     if (!parts || parts.length === 0) {
       parts = cleaned
         .split(/[,;•\n]/)
-        .map((p) => p.replace(/points\s*:?\s*\d+/gi, "").replace(/\bpoints\b/gi, "").trim())
+        .map((p: string) => p.replace(/points\s*:?\s*\d+/gi, "").replace(/\bpoints\b/gi, "").trim())
         .filter(Boolean);
     }
 
@@ -64,10 +73,10 @@ export const FileEvaluationCard = ({
           <div className="space-y-1 max-w-[75%]">
             {parts.length > 1 ? (
               <div>
-                <ul className="list-disc pl-4 text-[13px] text-gray-800 leading-relaxed">
+                <ul className="list-disc pl-4 text-[13px] text-gray-800 leading-relaxed space-y-1">
                   {parts.map((p, i) => (
-                    <li key={i} className="truncate">
-                      {truncateText(p, 160)}
+                    <li key={i} className="">
+                      {expanded ? p : truncateText(p, 160)}
                     </li>
                   ))}
                 </ul>
@@ -308,12 +317,8 @@ function renderScoreProof(scoreProof: ScoreProof) {
     []
   )
     .map((item) => {
-      const rawLabel = String(
-        (item as { sourceText?: string; source_text?: string; name?: string })?.sourceText ||
-          (item as { sourceText?: string; source_text?: string; name?: string })?.source_text ||
-          item?.name ||
-          ""
-      ).trim();
+      const record = item as Record<string, unknown>;
+      const rawLabel = String(record.sourceText || record.source_text || record.name || "").trim();
 
       // STRICT FILTER: Skip JSON noise
       if (!rawLabel || rawLabel === "{" || rawLabel === "}" || rawLabel === "[" || rawLabel === "]" || rawLabel.includes('"tieu_chi"')) {
@@ -353,11 +358,15 @@ function renderScoreProof(scoreProof: ScoreProof) {
       {proofItems.map((item, idx) => (
         <div key={idx} className="bg-white rounded-xl p-5 border border-emerald-100 shadow-sm space-y-4">
           <div className="flex justify-between items-start gap-4">
-            <h4 className="text-[14px] font-bold text-slate-800 flex items-start gap-2 leading-snug">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-              {item.criterion}
-            </h4>
-            <span className="text-[12px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full tabular-nums whitespace-nowrap">
+            <div className="text-[14px] font-bold text-slate-800 flex flex-col gap-1.5 leading-snug">
+              {item.criterion.split("\n").map((line, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                  <span>{line}</span>
+                </div>
+              ))}
+            </div>
+            <span className="text-[12px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full tabular-nums whitespace-nowrap shrink-0">
               {item.earned.toFixed(1)} / {item.total.toFixed(0)}
             </span>
           </div>
@@ -595,7 +604,15 @@ function extractCriterionParts(value: string) {
   const parsed = cleaned.startsWith("{") || cleaned.startsWith("[") ? tryParse(cleaned) : null;
 
   if (Array.isArray(parsed)) {
-    return parsed.map((item) => cleanCriterionPart(String(item))).filter(Boolean);
+    return parsed.map((item) => {
+      // Bổ sung xử lý lấy trường name/title từ object JSON
+      if (item && typeof item === "object") {
+        const obj = item as Record<string, unknown>;
+        const label = obj.name || obj.title || obj.criterion || obj.tieu_chi;
+        if (label) return cleanCriterionPart(String(label));
+      }
+      return cleanCriterionPart(String(item));
+    }).filter(Boolean);
   }
 
   if (parsed && typeof parsed === "object") {
