@@ -18,6 +18,7 @@ import webbrowser
 import threading
 import subprocess
 import atexit
+import logging
 
 # Force UTF-8 output on Windows to avoid UnicodeEncodeError with ASCII arts
 if sys.stdout.encoding != 'utf-8':
@@ -27,6 +28,9 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 sys.dont_write_bytecode = True
+# Configure module logger
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger("dsa_launcher")
 # ---------------------------------------------------------------------------
 # Graceful shutdown
 # ---------------------------------------------------------------------------
@@ -71,9 +75,9 @@ def _setup_signal_handlers():
         if not _shutdown_requested:
             _shutdown_requested = True
             _stop_frontend_process()
-            print(f"\n\n  {'=' * 54}")
-            print(f"  🛑  Server stopped by user. Goodbye!")
-            print(f"  {'=' * 54}\n")
+            logger.info(f"\n\n  {'=' * 54}")
+            logger.info(f"  🛑  Server stopped by user. Goodbye!")
+            logger.info(f"  {'=' * 54}\n")
             sys.exit(0)
 
     signal.signal(signal.SIGINT, handle_exit)
@@ -145,9 +149,9 @@ def _check_module(name):
 
 def _print_banner():
     """Print the startup banner with component checks."""
-    print(BANNER)
-    print(f"  {Colors.bold('Initializing DSA Autograder...')}")
-    print(f"  {'-' * 58}")
+    logger.info(BANNER)
+    logger.info(f"  {Colors.bold('Initializing DSA Autograder...')}")
+    logger.info(f"  {'-' * 58}")
 
 
 def _check_dependencies():
@@ -159,14 +163,14 @@ def _check_dependencies():
         result = _check_module(mod)
         if "OK" in result:
             ok_count += 1
-        print(f"    {result}")
+        logger.info(f"    {result}")
 
-    print(f"  {'-' * 58}")
+    logger.info(f"  {'-' * 58}")
     if ok_count == len(checks):
-        print(f"  Dependencies: {Colors.green(f'All {ok_count} modules loaded')}")
+        logger.info(f"  Dependencies: {Colors.green(f'All {ok_count} modules loaded')}")
     else:
-        print(f"  Dependencies: {Colors.yellow(f'{ok_count}/{len(checks)} modules loaded')}")
-    print()
+        logger.info(f"  Dependencies: {Colors.yellow(f'{ok_count}/{len(checks)} modules loaded')}")
+    logger.info("")
 
 
 def _animated_loading(text, duration=0.5):
@@ -217,14 +221,13 @@ def _ensure_venv_python():
     venv_python = _find_venv_python()
     if not venv_python:
         return
-
-    print(f"\n  {Colors.yellow('i')} Switching to virtual env: {Colors.cyan(venv_python)}")
+    logger.info(f"\n  {Colors.yellow('i')} Switching to virtual env: {Colors.cyan(venv_python)}")
     try:
         # Use subprocess to avoid os.execv issues on Windows with spaces in paths
         process = subprocess.run([venv_python, os.path.abspath(__file__)] + sys.argv[1:])
         sys.exit(process.returncode)
     except Exception as e:
-        print(f"  {Colors.red('!!')} Failed to switch to virtual env: {e}")
+        logger.error(f"  {Colors.red('!!')} Failed to switch to virtual env: {e}")
         sys.exit(1)
 
 
@@ -257,7 +260,7 @@ def _kill_process_on_port(port: int):
             if hasattr(conn, 'laddr') and conn.laddr and conn.laddr.port == port and conn.status == 'LISTEN':
                 pid = conn.pid
                 if pid:
-                    print(f"  {Colors.yellow('i')} Bắt gặp tiến trình cũ (PID {pid}) đang chiếm cổng {port}. Đang dọn dẹp...")
+                    logger.info(f"  {Colors.yellow('i')} Bắt gặp tiến trình cũ (PID {pid}) đang chiếm cổng {port}. Đang dọn dẹp...")
                     try:
                         if os.name == 'nt':
                             subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], 
@@ -292,7 +295,7 @@ def _kill_process_on_port(port: int):
                 state = columns[3].upper()
                 pid = columns[4]
                 if state == 'LISTENING' and local_address.endswith(f':{port}') and pid.isdigit() and int(pid) != os.getpid():
-                    print(f"  {Colors.yellow('i')} Found port {port} owner via netstat (PID {pid}). Stopping it...")
+                    logger.info(f"  {Colors.yellow('i')} Found port {port} owner via netstat (PID {pid}). Stopping it...")
                     subprocess.run(
                         ['taskkill', '/F', '/T', '/PID', pid],
                         stdout=subprocess.DEVNULL,
@@ -319,7 +322,7 @@ def _kill_process_on_port(port: int):
                 # if it's a python process from our folder, KILL it.
                 if 'python' in name or 'uvicorn' in name:
                     if current_dir in cwd or current_dir in cmdline or 'app.main:app' in cmdline:
-                        print(f"  {Colors.dim('-')} Xóa sổ tiến trình kẹt (ghost worker) PID {p.pid}...")
+                        logger.info(f"  {Colors.dim('-')} Xóa sổ tiến trình kẹt (ghost worker) PID {p.pid}...")
                         p.kill()
                         killed_any = True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -338,15 +341,15 @@ def _ensure_frontend_built():
     frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
     out_dir = os.path.join(frontend_dir, "out")
     if os.path.exists(frontend_dir) and not os.path.exists(out_dir):
-        print(f"\n  {Colors.yellow('i')} {Colors.bold('Đang biên dịch giao diện Frontend...')}")
-        print(f"    Thư mục 'out' bị thiếu. Quá trình biên dịch chỉ diễn ra 1 lần, tốn khoảng 30s-1p.")
+        logger.info(f"\n  {Colors.yellow('i')} {Colors.bold('Đang biên dịch giao diện Frontend...')}")
+        logger.info(f"    Thư mục 'out' bị thiếu. Quá trình biên dịch chỉ diễn ra 1 lần, tốn khoảng 30s-1p.")
         subprocess.run(["npm", "install"], cwd=frontend_dir, shell=True)
         subprocess.run(["npm", "run", "build"], cwd=frontend_dir, shell=True)
         if os.path.exists(out_dir):
-            print(f"  {Colors.green('OK')} Biên dịch Frontend hoàn tất!")
+            logger.info(f"  {Colors.green('OK')} Biên dịch Frontend hoàn tất!")
         else:
-            print(f"  {Colors.red('!!')} Lỗi biên dịch Frontend. Hãy tự kiểm tra bằng lệnh 'npm run build' trong thư mục frontend.")
-        print()
+            logger.error(f"  {Colors.red('!!')} Lỗi biên dịch Frontend. Hãy tự kiểm tra bằng lệnh 'npm run build' trong thư mục frontend.")
+        logger.info("")
 
 
 def _frontend_dev_enabled() -> bool:
@@ -369,15 +372,15 @@ def _start_frontend_dev(port: int = 3000):
     frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
     package_json = os.path.join(frontend_dir, "package.json")
     if not os.path.exists(package_json):
-        print(f"  {Colors.yellow('i')} Frontend package.json not found, skipping Next.js dev server.")
+        logger.info(f"  {Colors.yellow('i')} Frontend package.json not found, skipping Next.js dev server.")
         return None
 
     node_modules = os.path.join(frontend_dir, "node_modules")
     if not os.path.exists(node_modules):
-        print(f"  {Colors.yellow('i')} Installing frontend dependencies...")
+        logger.info(f"  {Colors.yellow('i')} Installing frontend dependencies...")
         install = subprocess.run([_npm_executable(), "install"], cwd=frontend_dir, shell=False)
         if install.returncode != 0:
-            print(f"  {Colors.red('!!')} npm install failed. Frontend dev server was not started.")
+            logger.error(f"  {Colors.red('!!')} npm install failed. Frontend dev server was not started.")
             return None
 
     logs_dir = os.path.join(frontend_dir, "logs")
@@ -408,11 +411,10 @@ def _start_frontend_dev(port: int = 3000):
     except Exception as exc:
         stdout.close()
         stderr.close()
-        print(f"  {Colors.red('!!')} Could not start frontend dev server: {exc}")
+        logger.error(f"  {Colors.red('!!')} Could not start frontend dev server: {exc}")
         return None
-
-    print(f"  {Colors.green('OK')} Frontend dev server starting on http://localhost:{port}")
-    print(f"  {Colors.dim('Logs: frontend/logs/frontend-main.out.log and frontend/logs/frontend-main.err.log')}")
+    logger.info(f"  {Colors.green('OK')} Frontend dev server starting on http://localhost:{port}")
+    logger.info(f"  {Colors.dim('Logs: frontend/logs/frontend-main.out.log and frontend/logs/frontend-main.err.log')}")
     return _frontend_process
 
 
@@ -432,7 +434,7 @@ def open_browser(host, port):
     """Open browser after server is ready."""
     if _wait_for_server(host, port, timeout=20):
         url = f"http://{host}:{port}"
-        print(f"\n  {Colors.green('>>')} Opening browser: {Colors.cyan(url)}")
+        logger.info(f"\n  {Colors.green('>>')} Opening browser: {Colors.cyan(url)}")
         try:
             webbrowser.open(url)
         except Exception:
@@ -443,9 +445,9 @@ def open_frontend_browser(host="127.0.0.1", port=3000):
     """Open the frontend browser when the Next.js server is ready."""
     start = time.time()
     while time.time() - start < 30:
-        if _is_port_open(host, port):
+            if _is_port_open(host, port):
             url = f"http://localhost:{port}"
-            print(f"\n  {Colors.green('>>')} Opening frontend: {Colors.cyan(url)}")
+            logger.info(f"\n  {Colors.green('>>')} Opening frontend: {Colors.cyan(url)}")
             try:
                 webbrowser.open(url)
             except Exception:
@@ -478,19 +480,19 @@ def main():
         _animated_loading("Initializing database", 0.05)
         _animated_loading("Preparing AI-only grading engine", 0.05)
     except (KeyboardInterrupt, SystemExit):
-        print(f"\n  Startup cancelled.\n")
+        logger.info(f"\n  Startup cancelled.\n")
         sys.exit(1)
 
-    print(f"    {Colors.green('OK')} {Colors.bold('All systems ready!')}")
-    print(f"  {'=' * 58}")
-    print(f"  {Colors.cyan('Backend:')}  http://127.0.0.1:8000")
-    print(f"  {Colors.cyan('Frontend:')} http://localhost:3000")
-    print(f"  {Colors.cyan('Docs:')}     http://127.0.0.1:8000/docs")
-    print(f"  {Colors.cyan('Health:')}   http://127.0.0.1:8000/health")
-    print(f"  {'=' * 58}")
-    print(f"  {Colors.dim('Press CTRL+C to stop the server')}")
-    print(f"\n  {Colors.yellow('i')} {Colors.bold('Mẹo:')} Chạy {Colors.cyan('python smart_launcher.py')} để có auto-reconnect!")
-    print()
+    logger.info(f"    {Colors.green('OK')} {Colors.bold('All systems ready!')}")
+    logger.info(f"  {'=' * 58}")
+    logger.info(f"  {Colors.cyan('Backend:')}  http://127.0.0.1:8000")
+    logger.info(f"  {Colors.cyan('Frontend:')} http://localhost:3000")
+    logger.info(f"  {Colors.cyan('Docs:')}     http://127.0.0.1:8000/docs")
+    logger.info(f"  {Colors.cyan('Health:')}   http://127.0.0.1:8000/health")
+    logger.info(f"  {'=' * 58}")
+    logger.info(f"  {Colors.dim('Press CTRL+C to stop the server')}")
+    logger.info(f"\n  {Colors.yellow('i')} {Colors.bold('Mẹo:')} Chạy {Colors.cyan('python smart_launcher.py')} để có auto-reconnect!")
+    logger.info("")
 
     # Open browser in background after server starts
     host, port = "127.0.0.1", 8000
@@ -498,18 +500,18 @@ def main():
 
     for used_port in (port, frontend_port):
         if _is_port_open(host, used_port):
-            print(f"  {Colors.yellow('i')} Port {used_port} is in use. Cleaning up for a fresh restart...")
+            logger.info(f"  {Colors.yellow('i')} Port {used_port} is in use. Cleaning up for a fresh restart...")
             _kill_process_on_port(used_port)
             time.sleep(1)
 
-    if _is_port_open(host, port):
-        print(f"  {Colors.yellow('i')} Cổng {port} đang được sử dụng. Tiến hành dọn dẹp để khởi động hoàn toàn mới...")
+        if _is_port_open(host, port):
+            logger.info(f"  {Colors.yellow('i')} Cổng {port} đang được sử dụng. Tiến hành dọn dẹp để khởi động hoàn toàn mới...")
         _kill_process_on_port(port)
         time.sleep(2)  # allow kernel to free socket completely
         
-        if _is_port_open(host, port):
-            print(f"  {Colors.red('!!')} Không thể giải phóng sự chiếm dụng ở cổng {port}.")
-            print(f"  {Colors.dim('Mẹo: dùng lệnh taskkill hoặc netstat để kiểm tra và đóng thủ công, hoặc khởi động lại máy.')}")
+            if _is_port_open(host, port):
+            logger.error(f"  {Colors.red('!!')} Không thể giải phóng sự chiếm dụng ở cổng {port}.")
+            logger.info(f"  {Colors.dim('Mẹo: dùng lệnh taskkill hoặc netstat để kiểm tra và đóng thủ công, hoặc khởi động lại máy.')}")
             sys.exit(1)
 
     if _frontend_dev_enabled():
@@ -520,23 +522,23 @@ def main():
         threading.Thread(target=open_browser, args=(host, port), daemon=True).start()
 
     # Start uvicorn
-    try:
-        import uvicorn
-        reload_enabled = os.getenv("AUTO_RELOAD", "false").lower() == "true" and os.name != "nt"
-        uvicorn.run(
-            "app.main:app",
-            host=host,
-            port=port,
-            reload=reload_enabled,
-            reload_dirs=[backend_dir] if reload_enabled else None,
-        )
-    except KeyboardInterrupt:
-        pass
-    finally:
-        _stop_frontend_process()
-        print(f"\n  {'=' * 58}")
-        print(f"  Máy chủ đã dừng. Nghỉ Game thôi !")
-        print(f"  {'=' * 58}\n")
+        try:
+            import uvicorn
+            reload_enabled = os.getenv("AUTO_RELOAD", "false").lower() == "true" and os.name != "nt"
+            uvicorn.run(
+                "app.main:app",
+                host=host,
+                port=port,
+                reload=reload_enabled,
+                reload_dirs=[backend_dir] if reload_enabled else None,
+            )
+        except KeyboardInterrupt:
+            pass
+        finally:
+            _stop_frontend_process()
+            logger.info(f"\n  {'=' * 58}")
+            logger.info(f"  Máy chủ đã dừng. Nghỉ Game thôi !")
+            logger.info(f"  {'=' * 58}\n")
 
 
 if __name__ == "__main__":

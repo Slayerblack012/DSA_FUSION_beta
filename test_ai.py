@@ -1,11 +1,16 @@
 import asyncio
 import os
 import sys
+import logging
 
 backend_dir = os.path.abspath('backend')
 sys.path.insert(0, backend_dir)
 
 from app.services.ai_providers.gemini_provider import GeminiProvider
+
+# Simple logger for this helper script
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger("test_ai")
 
 async def main():
     try:
@@ -14,7 +19,7 @@ async def main():
         load_dotenv('backend/.env')
         api_key = os.environ.get('GEMINI_API_KEY')
         if not api_key:
-            print('NO API KEY')
+            logger.warning('NO API KEY')
             return
             
         provider = GeminiProvider(api_key=api_key)
@@ -56,8 +61,8 @@ OUTPUT_JSON (chỉ JSON):
 }
 """
         res = await provider.generate_json(prompt, temperature=0, max_tokens=4096)
-        print('RESULT:', res)
+        logger.info('RESULT: %s', res)
     except Exception as e:
-        print('ERROR:', e)
+        logger.exception('ERROR:')
 
 asyncio.run(main())
